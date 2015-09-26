@@ -21,18 +21,10 @@ A sketch of the inner triangle:
          v          v
 
 """
-#YESTERDAY"S WORKED BUT THE TUPLE TO LIST STEP CAUSING TIME PROBLEMS AND ALSO SEEMS TO
-#STOP AT 1B.  PYTHON 2 to 3 ISSUE _ WAS LIST RETURN FROM ZIP, NOW TUPLE
-#LOW SWAP ISSUES AT 50Billion AND EVEN 25B AND 15B.  Despite 32GB, needs big swap.
-
-
-# Generate a list of the primes below 40
 
 import itertools
 import numpy as np
 import primesieve as ps
-
-#input("To what number would you like to run the coil to?")
 
 def primes_from_a_to_b(a,b):
     return ps.generate_primes(a,b)
@@ -141,36 +133,6 @@ def print_outputs(filename, data, skip=None):
         f.write(s)
     f.close()
 
-def compute_hex_positions_np(end_num):
-    """
-    Try to do the same computations using array operations
-
-    Status: incomplete, not known to work
-    """
-
-    #primes = primes_from_2_to(end_num)
-    primes = primes_from_a_to_b(end_num)
-    
-    primes = primes[2:]
-
-    m6vals = np.ones_like(primes)
-    m6vals[primes % 6 == 5] = 5
-
-    # 1 or -1s for each prime
-    #spin_compares = np.insert(m6vals[:-1] + m6vals[1:],0,0)
-    spin_compares = m6vals[:-1] + m6vals[1:]
-    spin_signs = np.ones_like(primes)
-    spin_signs[spin_compares == 10] = -1
-    spin_signs[spin_compares == 2] = -1
-
-    spin_sums = np.ones_like(primes)
-    spin_sums[spin_compares == 10] = 0
-    spin_sums[spin_compares == 2] = 0
-
-    turns = np.insert(np.diff(spin_signs),0,0) // 2
-
-    positions = np.ones_like(primes) + 1
-    #positions = (positions + signs) % 6
 
 def compute_hex_positions(end_num):
 
