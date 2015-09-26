@@ -1,5 +1,6 @@
 # prime-hexagon
-Prime numbers and their positions in the prime hexagon
+
+Prime numbers and their positions in the prime hexagon.
 
 This code plots the positons in the central triangle of the prime hexagon. 
 
