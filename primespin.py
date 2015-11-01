@@ -68,10 +68,47 @@ def generate_primes_from_a_to_b_old(start,end):
 
 
 
+def compute_spins(primes):
+    """Returns array of SPINS given an array of PRIMES (assumed to be 1d)
+
+    SPINS result array is same shape as PRIMES, with values stored in SPINS[1:]; 
+    SPINS[0] = 0, use that zero element to thread chunked computations together.
+    """
+    
+    print("generating mod6Values...")
+    m6val  = primes % 6
+    print("generating offsets...")
+    m6_offset_sum = m6val[:-1] + m6val[1:]
+    z = np.copy(m6_offset_sum)
+    z[ m6_offset_sum == 6]  = 1
+    z[ m6_offset_sum == 10] = -1
+    z[ m6_offset_sum == 2]  = -1
+    spins = np.cumprod(z)
+
+    print("\tgot spins")
+
+    # TODO: assert that values all values are 1 or -1, i.e. there are no zeros
+    assert np.count_nonzero(primes) == np.count_nonzero(spins) + 1
+
+    out = np.zeros_like(primes)
+    out[1:] = spins
+    return out
+
+def compute_positions(seed_pos, seed_spin, spins):
+    delta = np.copy(spins)
+    delta[0] = spins[0] - seed_spin     # first delta is seed_spin from previous chunk to this first spin
+    delta[1:] = spins[1:] - spins[0:-1]  # compute rest of deltas from input spins array
+    increments = np.copy(spins)
+    increments[ delta != 0 ] = 0
+
+    # start at seed, cumulative add
+    positions = np.copy(increments)
+    positions[0] = increments[0] +  seed_pos
+    outpositions = np.cumsum(positions)
+    return outpositions
 
 
-
-def generate_spins(end, m6vals):
+def generate_spins_iterative(end, m6vals):
     """Gernerates spin //Gernerates Positions // mod6, to keep it base 6"""
     
     # Creates an offset list (offset by 1 item) to compare to the mod6
@@ -136,34 +173,32 @@ def print_outputs(filename, data, skip=None):
 
 def compute_hex_positions(end_num):
 
-    primes_from_a_to_b(1,1000)
 
     print("generating primes...")
-    primes = primes_from_2_to(end_num)
-    primes = primes[2:]
+    #primes = primes_from_2_to(end_num)
+
+    raw_primes = primes_from_a_to_b(1,1000)
+
+    
+    # 2 and 3 are special, don't use them (they are the first two values, slice them out)
+    working_primes = np.array(raw_primes[2:])
     print("\tgot primes")
 
-    print("generating mod6Values...")
-    m6vals = np.ones_like(primes)
-    m6vals[primes % 6 == 5] = 5
-    print("\tgot mod6Values")
-
-    # old way
-    #(primes, mod6Val) = generate_primes_from_a_to_b_old(2,end_num)
-    #(spinLib, posLib) = generate_spins(end_num, mod6Val)
-    print("getting spins")
-    (spinLib, posLib) = generate_spins(end_num, m6vals.tolist())
+    spins = compute_spins(working_primes)
+    spins[0] = 1     ## special condition of stiching start value to right 
     print("\tgot spins")
 
+    pos = compute_positions(1, 1, spins)
+    
     print("generating rotations...")
-    rotLib            = generate_rotations(end_num, posLib)
+    rot            = generate_rotations(end_num, pos)
     print("\tgot rotations")
 
     print("zipping all data together")
-    data              = zip(primes, posLib,spinLib,rotLib)
+    data              = zip(working_primes, pos, spins, rot)
     print("\tzipped data.")
     print("slicing file")
-    d = itertools.islice(data,1,end_num,100)
+    d = itertools.islice(data,0,end_num,1)
 
     f = "test.txt"
     
