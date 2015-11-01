@@ -18,6 +18,10 @@ If you run into an issue during the install that complains about zlib, [see this
 In short:
     xcode-select --install
 
+And then I found I had to reinstall python3:
+
+    brew reinstall python3
+
 ## Virtual Envs
 
 We're going to follow good python hygene and use virtual environments to silo our install dependencies. 
@@ -33,4 +37,5 @@ then the basic commands are:
     workon some-other-related-project
     deactive
 
+If that
 
