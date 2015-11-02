@@ -15,10 +15,32 @@ import numpy as np
 import primesieve as ps
 import logging
 
-logger = logging.getLogger(__name__)
+logger = None
+
+def setup_loggers():
+    global logger
+    
+    # create logger
+    logger = logging.getLogger('prime_hex')
+    logger.setLevel(logging.INFO)
+
+    # create console handler and set level to debug
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.DEBUG)
+
+    # create formatter
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+    # add formatter to ch
+    ch.setFormatter(formatter)
+
+    # add ch to logger
+    logger.addHandler(ch)
+
+setup_loggers()
 
 def primes_from_a_to_b_primesieve(a,b):
-    logger.info("starting generating primes: {} to {}".format(a,b))
+    logger.info("starting generating primes from {} to {}".format(a,b))
     out = ps.generate_primes(a,b)
     logger.info("done generating primes")
     return out
@@ -133,8 +155,6 @@ def print_outputs(filename, data, skip=None):
 def compute_hex_positions(end_num):
 
 
-    print("generating primes from 1 to {}...".format(end_num) )
-
     raw_primes = primes_from_a_to_b(1, end_num)
 
     # 2 and 3 are special, don't use them (they are the first two values, slice them out)
@@ -146,11 +166,10 @@ def compute_hex_positions(end_num):
     pos = compute_positions(spins, 1, 1)
     rot = compute_rotations(pos, 0)
     
+    logger.info("zipping all data together")
 
-    print("zipping all data together")
     data              = zip(working_primes, pos, spins, rot)
-    print("\tzipped data.")
-    print("slicing file")
+    logger.info("\tdone zipping data")
     d = itertools.islice(data,0,end_num,100)
 
     f = "test.txt"
@@ -162,10 +181,10 @@ def compute_hex_positions(end_num):
      #print (skip)
     value = str(skip)
     print("\tskipped.")"""
-    
-    print("saving results to file {0}".format(f))
+
+    logger.info("saving results to file {0}".format(f))
     print_outputs(f, d)
-    print("\tprinted data")
+    logger.info("\tsaved data")
     return (raw_primes, working_primes, pos, spins, rot)
 
 if __name__ == '__main__':
