@@ -152,7 +152,7 @@ def print_outputs(filename, data, skip=None):
     f.close()
 
 
-def compute_hex_positions(end_num):
+def compute_hex_positions(end_num, skip_interval=1):
 
 
     raw_primes = primes_from_a_to_b(1, end_num)
@@ -170,7 +170,7 @@ def compute_hex_positions(end_num):
 
     data              = zip(working_primes, pos, spins, rot)
     logger.info("\tdone zipping data")
-    d = itertools.islice(data,0,end_num,100)
+    d = itertools.islice(data, 0, end_num, skip_interval)
 
     f = "test.txt"
     
