@@ -41,7 +41,7 @@ setup_loggers()
 
 def primes_from_a_to_b_primesieve(a,b):
     logger.info("starting generating primes from {} to {}".format(a,b))
-    out = ps.generate_primes(a,b)
+    out = np.array(ps.generate_primes(a,b))
     logger.info("done generating primes")
     return out
 
@@ -164,12 +164,12 @@ def save_text_arrays( filename, primes, spin, pos, rot, skip_interval=1):
 def save_binary_arrays( filename, primes, spin, pos, rot, skip_interval=None):
 
     if skip_interval is not None and skip_interval > 1:
-        r = slice(None, None, skip_interval)
+        s = slice(None, None, skip_interval)
     else:
-        r = slice(None, None)
-    
-    logger.info("start save binary arrays")
-    np.savez(filename, primes=primes[r], spin=spin[r], pos=pos[r], rot=rot[r])
+        s = slice(None, None)
+
+    logger.info("start save binary arrays with slice {}".format(s))
+    np.savez_compressed(filename, primes=primes[s], spin=spin[s], pos=pos[s], rot=rot[s])
     logger.info("\tdone save binary arrays")
     
 def compute_hex_positions(end_num, skip_interval=1):
@@ -177,7 +177,7 @@ def compute_hex_positions(end_num, skip_interval=1):
     raw_primes = primes_from_a_to_b(1, end_num)
 
     # 2 and 3 are special, don't use them (they are the first two values, slice them out)
-    working_primes = np.array(raw_primes[2:])
+    working_primes = raw_primes[2:]
 
     spins = compute_spins(working_primes)
     spins[0] = 1     ## special condition of stiching start value to right 
@@ -185,10 +185,8 @@ def compute_hex_positions(end_num, skip_interval=1):
     pos = compute_positions(spins, 1, 1)
     rot = compute_rotations(pos, 0)
 
-    save_text_arrays  ( "output.txt", working_primes, pos, spins, rot, skip_interval=skip_interval) 
+    #save_text_arrays  ( "output.txt", working_primes, pos, spins, rot, skip_interval=skip_interval) 
     save_binary_arrays( "output.npz", working_primes, pos, spins, rot, skip_interval=skip_interval) 
-
-
     
     return (raw_primes, working_primes, pos, spins, rot)
 
@@ -201,7 +199,7 @@ if __name__ == '__main__':
         end_num = 100000
 
     print("using end: {0}".format(end_num))
-    compute_hex_positions(end_num)
+    compute_hex_positions(end_num, 1)
 
 
 
