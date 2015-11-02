@@ -104,15 +104,15 @@ def compute_positions(spins, seed_pos, seed_spin):
     increments = np.copy(spins)           # copy the spin array,
     increments[ delta != 0 ] = 0          # set any non-zero delta to zero in the increment array
 
-    logger.info("compute_positions: done with aux calculations")
+    logger.info("compute_positions:\tdone with aux calculations")
     
-    logger.info("compute_spins: starting primary calculation")
+    logger.info("compute_positions: starting primary calculation")
 
     # start at seed, cumulative add
     positions = np.copy(increments)
     positions[0] = increments[0] +  seed_pos
     outpositions = np.cumsum(positions) % 6
-    logger.info("compute_spins: done with primary calculation")
+    logger.info("compute_positions:\tdone with primary calculation")
     return outpositions
 
 
@@ -151,9 +151,28 @@ def print_outputs(filename, data, skip=None):
         f.write(s)
     f.close()
 
+def save_text_arrays( filename, primes, spin, pos, rot, skip_interval=1):
+    logger.info("start zipping and slicing data together")
+    data              = zip(primes, pos, spin, rot)
+    d = itertools.islice(data, 0, end_num, skip_interval)
+    logger.info("\tdone zipping and slicing data")
 
+    logger.info("saving text results to file {0}".format(filename))
+    print_outputs(filename, d)
+    logger.info("done saving text file")
+    
+def save_binary_arrays( filename, primes, spin, pos, rot, skip_interval=None):
+
+    if skip_interval is not None and skip_interval > 1:
+        r = slice(None, None, skip_interval)
+    else:
+        r = slice(None, None)
+    
+    logger.info("start save binary arrays")
+    np.savez(filename, primes=primes[r], spin=spin[r], pos=pos[r], rot=rot[r])
+    logger.info("\tdone save binary arrays")
+    
 def compute_hex_positions(end_num, skip_interval=1):
-
 
     raw_primes = primes_from_a_to_b(1, end_num)
 
@@ -165,26 +184,12 @@ def compute_hex_positions(end_num, skip_interval=1):
 
     pos = compute_positions(spins, 1, 1)
     rot = compute_rotations(pos, 0)
+
+    save_text_arrays  ( "output.txt", working_primes, pos, spins, rot, skip_interval=skip_interval) 
+    save_binary_arrays( "output.npz", working_primes, pos, spins, rot, skip_interval=skip_interval) 
+
+
     
-    logger.info("zipping all data together")
-
-    data              = zip(working_primes, pos, spins, rot)
-    logger.info("\tdone zipping data")
-    d = itertools.islice(data, 0, end_num, skip_interval)
-
-    f = "test.txt"
-    
-    """ print("convert via skip")
-     #Prints every nth value set
-
-    skip = data[1:end_num:100000]
-     #print (skip)
-    value = str(skip)
-    print("\tskipped.")"""
-
-    logger.info("saving results to file {0}".format(f))
-    print_outputs(f, d)
-    logger.info("\tsaved data")
     return (raw_primes, working_primes, pos, spins, rot)
 
 if __name__ == '__main__':
