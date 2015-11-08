@@ -171,22 +171,29 @@ def save_binary_arrays( filename, primes, spin, pos, rot, skip_interval=None, do
     saver(filename, primes=primes[s], spin=spin[s], pos=pos[s], rot=rot[s])
     logger.info("\tdone save binary arrays")
 
-def blow_chunks(nprimes=100, nchunks = 10, verbose=None, do_compress=None):
-
-    res = compute_hex_positions(nprimes, do_compress=do_compress)
-    fname = res[0]
-    del res
+def blow_chunky_chunks(start_file, start_val, nvals, nchunks = 10, verbose=None, do_compress=None):
+    fname = start_file
+    val = start_val
     for i in range(nchunks-1):
-        res = compute_chunked_hex_positions(fname, nprimes=nprimes, do_compress=do_compress)
+        res = compute_chunked_hex_positions(fname, val, nvals, do_compress=do_compress)
+        val += nvals
         fname = res[0]
         del res
+    
+def blow_chunks(nvals, nchunks = 10, verbose=None, do_compress=None):
+    res = compute_hex_positions(nvals, do_compress=do_compress)
+    fname = res[0]
+    del res
+    start_val = nvals
+    blow_chunky_chunks( fname, start_val, nvals, nchunks=nchunks, do_compress=do_compress)
 
-def test_verbose(nprimes=100, verbose=None):
 
-    x = compute_hex_positions(nprimes)
+def test_verbose(nvals=100, verbose=None):
+
+    x = compute_hex_positions(nvals)
     fname,d0 = x[0],x[1:]
 
-    x = compute_chunked_hex_positions('output.npz',nprimes=nprimes)
+    x = compute_chunked_hex_positions('output.npz',nvals=nvals)
     (fname, d1) = (x[0], x[1:])
     newd1 = [ d[1:] for d in d1 ]
     for x in d0:
@@ -194,15 +201,17 @@ def test_verbose(nprimes=100, verbose=None):
     for x in newd1:
         print x
     save = [d0,newd1]
+    val = nvals
     for x in range(1,10):
-        x = compute_chunked_hex_positions(fname, nprimes=nprimes)
+        x = compute_chunked_hex_positions(fname, val, nvals)
         (fname, d1) = (x[0], x[1:])
 
         newd1 = [ d[1:] for d in d1 ]
         save.append( newd1 )
         for x in newd1:
             print x
-    
+        val += nvals
+        
     primes =  np.concatenate([ x[0] for x in save])
     spins  =  np.concatenate([ x[1] for x in save])
     poss   =  np.concatenate([ x[2] for x in save])
@@ -211,7 +220,7 @@ def test_verbose(nprimes=100, verbose=None):
     return save
         
 # primes,spin,pos,rot = data['primes'],data['spin'],data['pos'],data['rot']
-def compute_chunked_hex_positions(last_chunk_file, skip_interval=1, nprimes=None,do_compress=None):
+def compute_chunked_hex_positions(last_chunk_file, start_val, nvals, skip_interval=1, do_compress=None):
 
     with np.load(last_chunk_file, mmap_mode='r') as data:
         old_primes = data['primes']
@@ -220,18 +229,15 @@ def compute_chunked_hex_positions(last_chunk_file, skip_interval=1, nprimes=None
         pos = data['pos']
 
     (last_pos, last_spin, last_prime, last_rot) = (pos[-1], spin[-1], old_primes[-1], rot[-1])
-
-    if nprimes is None:
-        nprimes = 10**9
-    print("chunking the next {} primes".format(nprimes))
-
-    start_prime = last_prime
-    end_prime   = start_prime + nprimes
-
     # we are done with these values, go ahead and close up shop
     del old_primes, spin, rot, pos
+
+    end_val   = start_val + nvals
+
+    logger.info("compute_chunked_hex_positions: chunking values from {} to {}".format(start_val,end_val))
     
-    working_primes = primes_from_a_to_b(start_prime, end_prime)
+    working_primes = primes_from_a_to_b(start_val, end_val)
+    logger.info("compute_chunked_hex_positions: found {} primes".format(len(working_primes)))
 
     newspin = compute_spins(working_primes, last_spin)
     newspin[0] = last_spin     ## special condition of stiching start value to right 
@@ -242,7 +248,7 @@ def compute_chunked_hex_positions(last_chunk_file, skip_interval=1, nprimes=None
     newrot = compute_rotations(newpos, last_rot)
 
     #save_text_arrays  ( "output.txt", working_primes, spin, pos, rot, skip_interval=skip_interval) 
-    outname = "output-{:0>20d}-{:0>20d}.npz".format(start_prime, start_prime+nprimes)
+    outname = "output-{:0>20d}-{:0>20d}.npz".format(start_val, end_val)
     save_binary_arrays( outname, working_primes, newspin, newpos, newrot,
                         skip_interval=skip_interval, do_compress=do_compress) 
     
@@ -260,24 +266,65 @@ def compute_hex_positions(end_num, skip_interval=1, do_compress=None):
     rot = compute_rotations(pos, 0)
 
     #save_text_arrays  ( "output.txt", working_primes, spin,  pos, rot, skip_interval=skip_interval) 
-    outname = "output-{:0>20d}-{:0>20d}.npz".format(1, end_num)
+    outname = "output-{:0>20d}-{:0>20d}.npz".format(0, end_num)
     save_binary_arrays( outname, working_primes, spin, pos, rot,
                         skip_interval=skip_interval, do_compress=do_compress) 
     
     return (outname, raw_primes, working_primes, spin, pos, rot)
 
-if __name__ == '__main__':
-    import sys
+def countify2(ar):
+    # http://stackoverflow.com/questions/4260645/how-to-get-running-counts-for-numpy-array-values
+    # not working,
+    ar2 = np.ravel(ar)
+    ar3 = np.empty(ar2.shape, dtype=np.int32)
+    uniques = np.unique(ar2)
+    myarange = np.arange(ar2.shape[0])
+    for u in uniques:
+        ar3[ar2 == u] = myarange
+    return ar3
+    
+                                    
+def main(argv = None):
+    import sys, argparse, os, re
+    if argv is None:
+        argv = sys.argv
+            
+    parser = argparse.ArgumentParser(description='Prime Spin Hexagons')
+    parser.add_argument('--startfile', help='Input file to start processing chunks',required=False)
+    parser.add_argument('--startvalue', help='Starting value for resumed chunk computations',
+                        required=False, type=long)
 
-    if (len(sys.argv) > 1): 
-        nprimes = int(sys.argv[1])
+    parser.add_argument("-c", "--compress", action="store_true", default=False)
+
+    parser.add_argument('--logfile', help='File where to save the log',required=False)
+    parser.add_argument('--nvalues', help="number of values to process in a chunk",
+                        default=10**9, type=long)
+    parser.add_argument("--chunks", help="number of chunks to process", default=10,  type=int)
+    args = parser.parse_args()
+    
+                                                             
+        
+    if args.startfile is None:
+        print("blowing chunks of {:,} primes".format(args.nvalues))
+        print args
+        blow_chunks(args.nvalues, nchunks=args.chunks, do_compress=args.compress)
+
     else:
-        nprimes = 100000
-
-    print("blowing chunks of {:,} primes".format(nprimes))
-    blow_chunks(nprimes=nprimes, do_compress=1)
+        # we have a starting file, figure some stuff out
+        if not os.path.isfile(args.startfile):
+            sys.stderr.write("{} file does not exist".format(args.startfile))
+            sys.exit(1)
+        startval, endval = [long(x) for x in re.findall('\d+',args.startfile)]
+        nvalues = endval - startval
+        
+        print("blowing chunky chunks of {:,} primes".format(args.nvalues))
+        blow_chunky_chunks(args.startfile, startval, nvalues, nchunks=args.chunks)
+        
     #compute_hex_positions(end_num, 1)
 
+if __name__ == "__main__":
+    import sys
+    main(sys.argv)
 
 
 
