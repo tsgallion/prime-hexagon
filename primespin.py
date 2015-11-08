@@ -16,26 +16,22 @@ import primesieve as ps
 import logging
 
 logger = None
+log_formatter = None
 
 def setup_loggers():
-    global logger
+
+    global logger, log_formatter
+    if logger is not None:
+        return
     
     # create logger
     logger = logging.getLogger('prime_hex')
     logger.setLevel(logging.INFO)
 
-    # create console handler and set level to debug
-    ch = logging.StreamHandler()
-    ch.setLevel(logging.DEBUG)
-
     # create formatter
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    log_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
-    # add formatter to ch
-    ch.setFormatter(formatter)
 
-    # add ch to logger
-    logger.addHandler(ch)
 
 setup_loggers()
 
@@ -293,19 +289,33 @@ def main(argv = None):
     parser.add_argument('--startfile', help='Input file to start processing chunks',required=False)
     parser.add_argument('--startvalue', help='Starting value for resumed chunk computations',
                         required=False, type=long)
-
     parser.add_argument("-c", "--compress", action="store_true", default=False)
-
-    parser.add_argument('--logfile', help='File where to save the log',required=False)
+    parser.add_argument('--logfile', help='Save messagse to this log file',required=False)
+    parser.add_argument('--verbose', help='Print messages to the terminal',required=False)
     parser.add_argument('--nvalues', help="number of values to process in a chunk",
                         default=10**9, type=long)
     parser.add_argument("--chunks", help="number of chunks to process", default=10,  type=int)
     args = parser.parse_args()
     
-                                                             
+    if args.logfile:
+        fh = logging.FileHandler(args.logfile)
+        fh.setLevel(logging.INFO)
+        fh.setFormatter(log_formatter)
+        # add the handlers to the logger
+        logger.addHandler(fh)
+
+    if args.verbose:
+        global logger
+        # create console handler and set level to debug
+        ch = logging.StreamHandler()
+        ch.setLevel(logging.DEBUG)
+        # add formatter to ch
+        ch.setFormatter(log_formatter)
+        
+        # add ch to logger
+        logger.addHandler(ch)
         
     if args.startfile is None:
-        print("blowing chunks of {:,} primes".format(args.nvalues))
         print args
         blow_chunks(args.nvalues, nchunks=args.chunks, do_compress=args.compress)
 
@@ -317,7 +327,6 @@ def main(argv = None):
         startval, endval = [long(x) for x in re.findall('\d+',args.startfile)]
         nvalues = endval - startval
         
-        print("blowing chunky chunks of {:,} primes".format(args.nvalues))
         blow_chunky_chunks(args.startfile, startval, nvalues, nchunks=args.chunks)
         
     #compute_hex_positions(end_num, 1)
