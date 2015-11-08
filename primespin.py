@@ -15,6 +15,11 @@ import numpy as np
 import primesieve as ps
 import logging
 
+try:
+    l = long(1)
+except:
+    long = int
+
 logger = None
 log_formatter = None
 
@@ -193,9 +198,9 @@ def test_verbose(nvals=100, verbose=None):
     (fname, d1) = (x[0], x[1:])
     newd1 = [ d[1:] for d in d1 ]
     for x in d0:
-        print x
+        print(x)
     for x in newd1:
-        print x
+        print(x)
     save = [d0,newd1]
     val = nvals
     for x in range(1,10):
@@ -205,7 +210,7 @@ def test_verbose(nvals=100, verbose=None):
         newd1 = [ d[1:] for d in d1 ]
         save.append( newd1 )
         for x in newd1:
-            print x
+            print(x)
         val += nvals
         
     primes =  np.concatenate([ x[0] for x in save])
@@ -317,7 +322,6 @@ def main(argv = None):
         logger.addHandler(ch)
         
     if args.startfile is None:
-        print args
         blow_chunks(args.nvalues, nchunks=args.chunks, do_compress=args.compress)
 
     else:
