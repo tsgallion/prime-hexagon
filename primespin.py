@@ -296,6 +296,8 @@ def main(argv = None):
                         default=10**9, type=long)
     parser.add_argument("--chunks", help="number of chunks to process", default=10,  type=int)
     args = parser.parse_args()
+
+    global logger
     
     if args.logfile:
         fh = logging.FileHandler(args.logfile)
@@ -305,7 +307,6 @@ def main(argv = None):
         logger.addHandler(fh)
 
     if args.verbose:
-        global logger
         # create console handler and set level to debug
         ch = logging.StreamHandler()
         ch.setLevel(logging.DEBUG)
