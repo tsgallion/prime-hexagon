@@ -27,8 +27,6 @@ Run with the --help argument to see the help file.
 
 ```bash
 python primespin.py --help
-primespin.py:308: SyntaxWarning: name 'logger' is used prior to global declaration
-  global logger
 usage: primespin.py [-h] [--startfile STARTFILE] [--startvalue STARTVALUE]
                     [-c] [--logfile LOGFILE] [--verbose VERBOSE]
                     [--nvalues NVALUES] [--chunks CHUNKS]
