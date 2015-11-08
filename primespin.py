@@ -61,7 +61,7 @@ def primes_from_2_to_n_np(n):
     return np.r_[2,3,((3*np.nonzero(sieve)[0]+1)|1)]
 
 
-def compute_spins(primes):
+def compute_spins(primes, last_spin):
     """Returns array of SPINS given an array of PRIMES (assumed to be 1d)
 
     SPINS result array is same shape as PRIMES, with values stored in SPINS[1:]; 
@@ -70,38 +70,34 @@ def compute_spins(primes):
     
     logger.info("compute_spins: generating mod6Values")
     m6val  = primes % 6
-    m6_offset_sum = m6val[:-1] + m6val[1:]
+    m6_offset_sum     = np.zeros_like(primes)
+    m6_offset_sum[1:] = m6val[:-1] + m6val[1:]
     logger.info("compute_spins: done mod6Values")
 
     logger.info("compute_spins: starting to compute spins")
 
-    z = np.copy(m6_offset_sum)
-    z[ m6_offset_sum == 6]  = 1
+    z = np.zeros_like(primes)
+    z[ m6_offset_sum ==  6] =  1
     z[ m6_offset_sum == 10] = -1
-    z[ m6_offset_sum == 2]  = -1
-    spins = np.cumprod(z)
+    z[ m6_offset_sum ==  2] = -1
+    z[0] = last_spin
+    spin = np.cumprod(z)
 
     logger.info("compute_spins: done computing spins")
 
-    # assert that values all values are 1 or -1, i.e. there are no zeros
-    assert np.count_nonzero(primes) == np.count_nonzero(spins) + 1
+    return spin
 
-    out = np.append( [0], spins)
-    #out = np.zeros_like(primes)
-    #out[1:] = spins
-    return out
-
-def compute_positions(spins, seed_pos, seed_spin):
+def compute_positions(spin, seed_pos, seed_spin):
     """Given an array of SPINS and two SEED_POSITION and SEED_SPIN values, compute the positions along the prime hex 
 
     """
 
     logger.info("compute_positions: starting aux calculations")
-    delta = np.zeros_like(spins)
-    delta[0]  = spins[0] - seed_spin      # first delta is seed_spin from previous chunk to this first spin
-    delta[1:] = spins[1:] - spins[0:-1]   # compute rest of deltas from input spins array
+    delta = np.zeros_like(spin)
+    delta[0]  = spin[0] - seed_spin      # first delta is seed_spin from previous chunk to this first spin
+    delta[1:] = spin[1:] - spin[0:-1]   # compute rest of deltas from input spins array
 
-    increments = np.copy(spins)           # copy the spin array,
+    increments = np.copy(spin)           # copy the spin array,
     increments[ delta != 0 ] = 0          # set any non-zero delta to zero in the increment array
 
     logger.info("compute_positions:\tdone with aux calculations")
@@ -110,26 +106,24 @@ def compute_positions(spins, seed_pos, seed_spin):
 
     # start at seed, cumulative add
     positions = np.copy(increments)
-    positions[0] = increments[0] +  seed_pos
+    positions[0] += seed_pos
     outpositions = np.cumsum(positions) % 6
     logger.info("compute_positions:\tdone with primary calculation")
     return outpositions
 
 
-def compute_rotations(positions, rot_seed):
+def compute_rotations(positions, rot_seed ):
 
     logger.info("compute_rotations: starting aux calculations")
     delta = np.diff(positions)
 
     z = np.zeros_like(delta)       # zero array like delta
-    z[ delta == -5 ] = 1           # where delta = -5, set incrment to 1
-    z[ delta == 5 ]  = -1          # where delta is 5, set increment to -1
+    z[ delta == -5 ] =  1          # where delta = -5, set increment to 1
+    z[ delta ==  5 ] = -1          # where delta is 5, set increment to -1
     logger.info("compute_rotations: done with aux calculations")
 
     logger.info("compute_rotations: starting primary calculations")
-    r = np.zeros_like(positions)   # construct output array shaped like input array
-    r[0] = rot_seed                # set seed start value
-    r[1:] = np.cumsum(z)           # cumulative sum the increment values
+    r = np.cumsum( np.concatenate(([rot_seed],z)))           # cumulative sum the increment values
     logger.info("compute_rotations: done with primary calculations")
 
     return r
@@ -142,7 +136,7 @@ def print_outputs(filename, data, skip=None):
      
     f = open(filename, "w") 
  
-    if skip is not None:
+    if skip is not None and skip > 1:
         logger.info("skipping values - using every {0}".format(skip))
         data = data[::skip]
 
@@ -154,52 +148,135 @@ def print_outputs(filename, data, skip=None):
 def save_text_arrays( filename, primes, spin, pos, rot, skip_interval=1):
     logger.info("start zipping and slicing data together")
     data              = zip(primes, pos, spin, rot)
-    d = itertools.islice(data, 0, end_num, skip_interval)
+    d = itertools.islice(data, 0, len(primes), skip_interval)
     logger.info("\tdone zipping and slicing data")
 
     logger.info("saving text results to file {0}".format(filename))
     print_outputs(filename, d)
     logger.info("done saving text file")
     
-def save_binary_arrays( filename, primes, spin, pos, rot, skip_interval=None):
+def save_binary_arrays( filename, primes, spin, pos, rot, skip_interval=None, do_compress=None):
 
     if skip_interval is not None and skip_interval > 1:
         s = slice(None, None, skip_interval)
     else:
-        s = slice(None, None)
+        s = slice(None, None, 1)
 
-    logger.info("start save binary arrays with slice {}".format(s))
-    np.savez_compressed(filename, primes=primes[s], spin=spin[s], pos=pos[s], rot=rot[s])
+    saver = np.savez
+    msg = "uncompressed"
+    if do_compress:
+        msg = "compressed"
+        saver = np.savez_compressed
+    logger.info("start save binary arrays {} to file {} with slice {}".format(msg, filename, s))
+    saver(filename, primes=primes[s], spin=spin[s], pos=pos[s], rot=rot[s])
     logger.info("\tdone save binary arrays")
+
+def blow_chunks(nprimes=100, nchunks = 10, verbose=None, do_compress=None):
+
+    res = compute_hex_positions(nprimes, do_compress=do_compress)
+    fname = res[0]
+    del res
+    for i in range(nchunks-1):
+        res = compute_chunked_hex_positions(fname, nprimes=nprimes, do_compress=do_compress)
+        fname = res[0]
+        del res
+
+def test_verbose(nprimes=100, verbose=None):
+
+    x = compute_hex_positions(nprimes)
+    fname,d0 = x[0],x[1:]
+
+    x = compute_chunked_hex_positions('output.npz',nprimes=nprimes)
+    (fname, d1) = (x[0], x[1:])
+    newd1 = [ d[1:] for d in d1 ]
+    for x in d0:
+        print x
+    for x in newd1:
+        print x
+    save = [d0,newd1]
+    for x in range(1,10):
+        x = compute_chunked_hex_positions(fname, nprimes=nprimes)
+        (fname, d1) = (x[0], x[1:])
+
+        newd1 = [ d[1:] for d in d1 ]
+        save.append( newd1 )
+        for x in newd1:
+            print x
     
-def compute_hex_positions(end_num, skip_interval=1):
+    primes =  np.concatenate([ x[0] for x in save])
+    spins  =  np.concatenate([ x[1] for x in save])
+    poss   =  np.concatenate([ x[2] for x in save])
+    rots   =  np.concatenate([ x[3] for x in save])
+    save_text_arrays  ( "chunked-output.txt", primes, spins, poss, rots)
+    return save
+        
+# primes,spin,pos,rot = data['primes'],data['spin'],data['pos'],data['rot']
+def compute_chunked_hex_positions(last_chunk_file, skip_interval=1, nprimes=None,do_compress=None):
+
+    with np.load(last_chunk_file, mmap_mode='r') as data:
+        old_primes = data['primes']
+        spin = data['spin']
+        rot = data['rot']
+        pos = data['pos']
+
+    (last_pos, last_spin, last_prime, last_rot) = (pos[-1], spin[-1], old_primes[-1], rot[-1])
+
+    if nprimes is None:
+        nprimes = 10**9
+    print("chunking the next {} primes".format(nprimes))
+
+    start_prime = last_prime
+    end_prime   = start_prime + nprimes
+
+    # we are done with these values, go ahead and close up shop
+    del old_primes, spin, rot, pos
+    
+    working_primes = primes_from_a_to_b(start_prime, end_prime)
+
+    newspin = compute_spins(working_primes, last_spin)
+    newspin[0] = last_spin     ## special condition of stiching start value to right 
+
+    temppos = compute_positions(newspin[1:], last_pos, last_spin)
+    newpos = np.concatenate( ([last_pos], temppos) )
+
+    newrot = compute_rotations(newpos, last_rot)
+
+    #save_text_arrays  ( "output.txt", working_primes, spin, pos, rot, skip_interval=skip_interval) 
+    outname = "output-{:0>20d}-{:0>20d}.npz".format(start_prime, start_prime+nprimes)
+    save_binary_arrays( outname, working_primes, newspin, newpos, newrot,
+                        skip_interval=skip_interval, do_compress=do_compress) 
+    
+    return (outname, working_primes, newspin, newpos, newrot)
+    
+def compute_hex_positions(end_num, skip_interval=1, do_compress=None):
 
     raw_primes = primes_from_a_to_b(1, end_num)
 
     # 2 and 3 are special, don't use them (they are the first two values, slice them out)
     working_primes = raw_primes[2:]
 
-    spins = compute_spins(working_primes)
-    spins[0] = 1     ## special condition of stiching start value to right 
-
-    pos = compute_positions(spins, 1, 1)
+    spin = compute_spins(working_primes, 1)
+    pos = compute_positions(spin, 1, 1)
     rot = compute_rotations(pos, 0)
 
-    #save_text_arrays  ( "output.txt", working_primes, pos, spins, rot, skip_interval=skip_interval) 
-    save_binary_arrays( "output.npz", working_primes, pos, spins, rot, skip_interval=skip_interval) 
+    #save_text_arrays  ( "output.txt", working_primes, spin,  pos, rot, skip_interval=skip_interval) 
+    outname = "output-{:0>20d}-{:0>20d}.npz".format(1, end_num)
+    save_binary_arrays( outname, working_primes, spin, pos, rot,
+                        skip_interval=skip_interval, do_compress=do_compress) 
     
-    return (raw_primes, working_primes, pos, spins, rot)
+    return (outname, raw_primes, working_primes, spin, pos, rot)
 
 if __name__ == '__main__':
     import sys
 
     if (len(sys.argv) > 1): 
-        end_num = int(sys.argv[1])
+        nprimes = int(sys.argv[1])
     else:
-        end_num = 100000
+        nprimes = 100000
 
-    print("using end: {0}".format(end_num))
-    compute_hex_positions(end_num, 1)
+    print("blowing chunks of {:,} primes".format(nprimes))
+    blow_chunks(nprimes=nprimes, do_compress=1)
+    #compute_hex_positions(end_num, 1)
 
 
 
