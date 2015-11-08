@@ -17,46 +17,33 @@ Resume a computation given a saved file:
     python ./primespin.py --startfile ./output-00000000000000107000-00000000000000108000.npz --chunks 100
 
 
-Help with --help
+##  Computing a prime number's position on the prime hexagon
+
+TODO
+
+## Command Line Help 
+
+Run with the --help argument to see the help file.
 
 ```bash
-python ./primespin.py --help
+python primespin.py --help
+primespin.py:308: SyntaxWarning: name 'logger' is used prior to global declaration
+  global logger
 usage: primespin.py [-h] [--startfile STARTFILE] [--startvalue STARTVALUE]
-                    [-c] [--logfile LOGFILE] [--nvalues NVALUES]
-		                        [--chunks CHUNKS]
+                    [-c] [--logfile LOGFILE] [--verbose VERBOSE]
+                    [--nvalues NVALUES] [--chunks CHUNKS]
 
 Prime Spin Hexagons
 
 optional arguments:
   -h, --help            show this help message and exit
   --startfile STARTFILE
-                  Input file to start processing chunks
+                        Input file to start processing chunks
   --startvalue STARTVALUE
-                  Starting value for resumed chunk computations
+                        Starting value for resumed chunk computations
   -c, --compress
-  --logfile LOGFILE     File where to save the log
+  --logfile LOGFILE     Save messagse to this log file
+  --verbose VERBOSE     Print messages to the terminal
   --nvalues NVALUES     number of values to process in a chunk
   --chunks CHUNKS       number of chunks to process
 ```
-
-
-output-00000000000000009000-00000000000000010000.npz
-
-##  Computing a prime number's position on the prime hexagon
-
-Initial prime within the triangle is at position 2 and is prime 5.  Numbers at 2,4,0
-are dependent on status of those at 1,3, and 5 for spin determination for numbers
-immediately following.  (Because they are n type primes and defined as residing
-in the last hexagon.  The following number, n+1, spins with the n number, unless
-it is followed by another prime, then spins with the second prime.
-A sketch of the inner triangle:
-
-
-           <- 3 ->
-           
-           2      4
-           
-       <-1    0     5->
-         |          |
-         v          v
-         
