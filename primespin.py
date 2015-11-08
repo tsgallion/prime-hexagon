@@ -289,7 +289,7 @@ def main(argv = None):
     parser.add_argument('--startfile', help='Input file to start processing chunks',required=False)
     parser.add_argument('--startvalue', help='Starting value for resumed chunk computations',
                         required=False, type=long)
-    parser.add_argument("-c", "--compress", action="store_true", default=False)
+    parser.add_argument("-c", "--compress", action="store_true", default=True)
     parser.add_argument('--logfile', help='Save messagse to this log file',required=False)
     parser.add_argument('--verbose', help='Print messages to the terminal',required=False)
     parser.add_argument('--nvalues', help="number of values to process in a chunk",
