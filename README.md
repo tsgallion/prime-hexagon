@@ -52,13 +52,22 @@ Generate 1000 files of 1B values each
 
     primespin.py --nvalues=1000000000 --chunks=1000 
 
+or
+
+     python3 primespin.py --nvalues=$(echo 10,000,000,000 | tr -d ,) --chunks=10000 --skip=1000000 --logfile run.log
+
 Same thing but write out only every 1Mth value:
 
     primespin.py --nvalues=10000000000 --chunks=10 --skip=1000000 
 
+Now resume a computation starting at the specified file:
+
+    primespin.py --chunks=10 --skip=1000000 --infile output-00000000009000000000-00000000010000000000.npz
+
 Print some values from the binary .npz files
 
     primespin.py --viewvalues=:: --infile output-00000000009000000000-00000000010000000000.npz
+
 
 Note viewvalues is evaluated as an [extended Python
 slice](https://docs.python.org/2.3/whatsnew/section-slices.html). That is, the values are
