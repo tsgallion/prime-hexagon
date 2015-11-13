@@ -16,10 +16,16 @@ import primesieve as ps
 import logging
 import re
 
+# python 2/3 compatibility stuff
 try:
     l = long(1)
 except:
     long = int
+
+try:
+    zipper = itertools.izip
+except:
+    zipper = zip
 
 logger = None
 log_formatter = None
@@ -139,7 +145,7 @@ def write_collection_to_file(fobj, data):
 
 def print_text_arrays_to_file( fobj, primes, spin, pos, rot, skip_interval=1):
     logger.info("start zipping and slicing data together")
-    data  = itertools.izip(primes, pos, spin, rot)
+    data  = zipper(primes, pos, spin, rot)
     d     = itertools.islice(data, None, None, skip_interval)
     logger.info("\tdone zipping and slicing data")
 
@@ -291,7 +297,7 @@ def print_npz_vals(infile, slices):
         rot = data['rot']
         pos = data['pos']
     for s in slices:
-        data  = itertools.izip(primes[s], pos[s], spin[s], rot[s])
+        data  = zipper(primes[s], pos[s], spin[s], rot[s])
         write_collection_to_file(sys.stdout, data)
     
         
@@ -299,7 +305,14 @@ def get_slice_obj(slicearg):
     slicearg = re.sub(',','',slicearg)
     svals = [ int(n) if n else None for n in slicearg.split(':') ]
     svals = tuple(svals)
-    s = apply(slice, svals)
+    s = None
+    try:
+        s = apply(slice, svals)
+    except:
+        pass
+    if s is None:
+        s = slice(*svals)
+            
     return s
 
 def main(argv = None):
