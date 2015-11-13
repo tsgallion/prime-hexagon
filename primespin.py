@@ -177,7 +177,7 @@ def save_binary_arrays( filename, primes, spin, pos, rot, skip_interval=None, do
 def blow_chunky_chunks(start_file, start_val, nvals, nchunks = 10, skip_interval=1,verbose=None, do_compress=None):
     fname = start_file
     val = start_val
-    for i in range(nchunks-1):
+    for i in range(nchunks):
         res = compute_chunked_hex_positions(fname, val, nvals, do_compress=do_compress,skip_interval=skip_interval)
         val += nvals
         fname = res[0]
@@ -188,7 +188,7 @@ def blow_chunks(nvals, nchunks = 10, verbose=None, do_compress=None, skip_interv
     fname = res[0]
     del res
     start_val = nvals
-    blow_chunky_chunks( fname, start_val, nvals, nchunks=nchunks, do_compress=do_compress, skip_interval=skip_interval)
+    blow_chunky_chunks( fname, start_val, nvals, nchunks=nchunks-1, do_compress=do_compress, skip_interval=skip_interval)
 
 
 def test_verbose(nvals=100, verbose=None):
