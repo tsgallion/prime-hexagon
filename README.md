@@ -45,3 +45,28 @@ optional arguments:
   --nvalues NVALUES     number of values to process in a chunk
   --chunks CHUNKS       number of chunks to process
 ```
+
+Here are a few sample command lines:
+
+Generate 1000 files of 1B values each
+
+    primespin.py --nvalues=1000000000 --chunks=1000 
+
+Same thing but write out only every 1Mth value:
+
+    primespin.py --nvalues=10000000000 --chunks=10 --skip=1000000 
+
+Print some values from the binary .npz files
+
+    primespin.py --viewvalues=:: --infile output-00000000009000000000-00000000010000000000.npz
+
+Note viewvalues is evaluated as an [extended Python
+slice](https://docs.python.org/2.3/whatsnew/section-slices.html). That is, the values are
+
+   start:stop:step
+
+Also any of those values can actually be negative values to indicate starting from the other end in the case of start and stop. If you make step negative it counts backward.
+
+So let's print the last value in this file:
+
+    primespin.py --viewvalues=-1:: --infile output-00000000009000000000-00000000010000000000.npz
