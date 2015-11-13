@@ -168,21 +168,21 @@ def save_binary_arrays( filename, primes, spin, pos, rot, skip_interval=None, do
     saver(filename, primes=primes[s], spin=spin[s], pos=pos[s], rot=rot[s])
     logger.info("\tdone save binary arrays")
 
-def blow_chunky_chunks(start_file, start_val, nvals, nchunks = 10, verbose=None, do_compress=None):
+def blow_chunky_chunks(start_file, start_val, nvals, nchunks = 10, skip_interval=1,verbose=None, do_compress=None):
     fname = start_file
     val = start_val
     for i in range(nchunks-1):
-        res = compute_chunked_hex_positions(fname, val, nvals, do_compress=do_compress)
+        res = compute_chunked_hex_positions(fname, val, nvals, do_compress=do_compress,skip_interval=skip_interval)
         val += nvals
         fname = res[0]
         del res
     
-def blow_chunks(nvals, nchunks = 10, verbose=None, do_compress=None):
+def blow_chunks(nvals, nchunks = 10, verbose=None, do_compress=None, skip_interval=1):
     res = compute_hex_positions(nvals, do_compress=do_compress)
     fname = res[0]
     del res
     start_val = nvals
-    blow_chunky_chunks( fname, start_val, nvals, nchunks=nchunks, do_compress=do_compress)
+    blow_chunky_chunks( fname, start_val, nvals, nchunks=nchunks, do_compress=do_compress, skip_interval=skip_interval)
 
 
 def test_verbose(nvals=100, verbose=None):
@@ -315,6 +315,8 @@ def main(argv = None):
     parser.add_argument('--verbose', help='Print messages to the terminal',required=False,default=1)
     parser.add_argument('--nvalues', help="number of values to process in a chunk",
                         default=10**9, type=long)
+    parser.add_argument('--skip', help="number of values to skip in printing output",
+                        default=1, type=long)
     parser.add_argument("--chunks", help="number of chunks to process", default=10,  type=int)
     args = parser.parse_args()
     
@@ -338,8 +340,7 @@ def main(argv = None):
         logger.addHandler(ch)
         
     if args.infile is None:
-        print args
-        blow_chunks(args.nvalues, nchunks=args.chunks, do_compress=args.compress)
+        blow_chunks(args.nvalues, nchunks=args.chunks, do_compress=args.compress, skip_interval=args.skip)
 
     else:
         # we have a starting file, figure some stuff out
@@ -353,7 +354,7 @@ def main(argv = None):
             slices = [ get_slice_obj(s) for s in args.viewvalues]
             print_npz_vals(args.infile, slices)
         else:
-            blow_chunky_chunks(args.infile, startval, nvalues, nchunks=args.chunks)
+            blow_chunky_chunks(args.infile, startval, nvalues, nchunks=args.chunks, skip_interval=args.skip)
         
     #compute_hex_positions(end_num, 1)
 
