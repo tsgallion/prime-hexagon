@@ -367,7 +367,7 @@ def main(argv = None):
             slices = [ get_slice_obj(s) for s in args.viewvalues]
             print_npz_vals(args.infile, slices)
         else:
-            blow_chunky_chunks(args.infile, startval, nvalues, nchunks=args.chunks, skip_interval=args.skip)
+            blow_chunky_chunks(args.infile, endval, nvalues, nchunks=args.chunks, skip_interval=args.skip)
         
     #compute_hex_positions(end_num, 1)
 
