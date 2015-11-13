@@ -14,7 +14,6 @@ import itertools
 import numpy as np
 import primesieve as ps
 import logging
-import re
 
 try:
     l = long(1)
@@ -131,25 +130,30 @@ def compute_rotations(positions, rot_seed ):
     return r
 
 
-def write_collection_to_file(fobj, data):
-    """Write to file object FOBJ each value in DATA collection
+def print_outputs(filename, data, skip=None):
+    """Fold four major outputs into same result: 
+    prime, position, spin, rotation
     """    
-    w = fobj.write
-    [ w( str(d) + '\n') for d in data]
+     
+    f = open(filename, "w") 
+ 
+    if skip is not None and skip > 1:
+        logger.info("skipping values - using every {0}".format(skip))
+        data = data[::skip]
 
-def print_text_arrays_to_file( fobj, primes, spin, pos, rot, skip_interval=1):
+    for out in data:
+        s = str(out) + '\n'
+        f.write(s)
+    f.close()
+
+def save_text_arrays( filename, primes, spin, pos, rot, skip_interval=1):
     logger.info("start zipping and slicing data together")
-    data  = itertools.izip(primes, pos, spin, rot)
-    d     = itertools.islice(data, None, None, skip_interval)
+    data              = zip(primes, pos, spin, rot)
+    d = itertools.islice(data, 0, len(primes), skip_interval)
     logger.info("\tdone zipping and slicing data")
 
-    write_collection_to_file(fobj, d)
-
-def print_text_arrays( filename, primes, spin, pos, rot, skip_interval=1):
     logger.info("saving text results to file {0}".format(filename))
-    f = open(filename, "w") 
-    print_text_arrays_to_file(f, primes, spin, pos, rot, skip_interval=1)
-    f.close()
+    print_outputs(filename, d)
     logger.info("done saving text file")
     
 def save_binary_arrays( filename, primes, spin, pos, rot, skip_interval=None, do_compress=None):
@@ -168,21 +172,21 @@ def save_binary_arrays( filename, primes, spin, pos, rot, skip_interval=None, do
     saver(filename, primes=primes[s], spin=spin[s], pos=pos[s], rot=rot[s])
     logger.info("\tdone save binary arrays")
 
-def blow_chunky_chunks(start_file, start_val, nvals, nchunks = 10, skip_interval=1,verbose=None, do_compress=None):
+def blow_chunky_chunks(start_file, start_val, nvals, nchunks = 10, verbose=None, do_compress=None):
     fname = start_file
     val = start_val
     for i in range(nchunks-1):
-        res = compute_chunked_hex_positions(fname, val, nvals, do_compress=do_compress,skip_interval=skip_interval)
+        res = compute_chunked_hex_positions(fname, val, nvals, do_compress=do_compress)
         val += nvals
         fname = res[0]
         del res
     
-def blow_chunks(nvals, nchunks = 10, verbose=None, do_compress=None, skip_interval=1):
-    res = compute_hex_positions(nvals, do_compress=do_compress, skip_interval=skip_interval)
+def blow_chunks(nvals, nchunks = 10, verbose=None, do_compress=None):
+    res = compute_hex_positions(nvals, do_compress=do_compress)
     fname = res[0]
     del res
     start_val = nvals
-    blow_chunky_chunks( fname, start_val, nvals, nchunks=nchunks, do_compress=do_compress, skip_interval=skip_interval)
+    blow_chunky_chunks( fname, start_val, nvals, nchunks=nchunks, do_compress=do_compress)
 
 
 def test_verbose(nvals=100, verbose=None):
@@ -213,7 +217,7 @@ def test_verbose(nvals=100, verbose=None):
     spins  =  np.concatenate([ x[1] for x in save])
     poss   =  np.concatenate([ x[2] for x in save])
     rots   =  np.concatenate([ x[3] for x in save])
-    print_text_arrays  ( "chunked-output.txt", primes, spins, poss, rots)
+    save_text_arrays  ( "chunked-output.txt", primes, spins, poss, rots)
     return save
         
 # primes,spin,pos,rot = data['primes'],data['spin'],data['pos'],data['rot']
@@ -244,10 +248,8 @@ def compute_chunked_hex_positions(last_chunk_file, start_val, nvals, skip_interv
 
     newrot = compute_rotations(newpos, last_rot)
 
-    basename  = "output-{:0>20d}-{:0>20d}".format(start_val, end_val)
-    txtutname = basename + '.txt'
-    #print_text_arrays( outname, working_primes, newspin, newpos, newrot, skip_interval=skip_interval) 
-    outname = basename + '.npz'
+    #save_text_arrays  ( "output.txt", working_primes, spin, pos, rot, skip_interval=skip_interval) 
+    outname = "output-{:0>20d}-{:0>20d}.npz".format(start_val, end_val)
     save_binary_arrays( outname, working_primes, newspin, newpos, newrot,
                         skip_interval=skip_interval, do_compress=do_compress) 
     
@@ -264,14 +266,12 @@ def compute_hex_positions(end_num, skip_interval=1, do_compress=None):
     pos = compute_positions(spin, 1, 1)
     rot = compute_rotations(pos, 0)
 
-    basename = "output-{:0>20d}-{:0>20d}".format(0, end_num)
-    txtname = basename + '.txt'
-    #print_text_arrays  ( txtname, working_primes, spin,  pos, rot, skip_interval=skip_interval) 
-    npzname = basename + '.npz'
-    save_binary_arrays( npzname, working_primes, spin, pos, rot,
+    #save_text_arrays  ( "output.txt", working_primes, spin,  pos, rot, skip_interval=skip_interval) 
+    outname = "output-{:0>20d}-{:0>20d}.npz".format(0, end_num)
+    save_binary_arrays( outname, working_primes, spin, pos, rot,
                         skip_interval=skip_interval, do_compress=do_compress) 
     
-    return (npzname, raw_primes, working_primes, spin, pos, rot)
+    return (outname, raw_primes, working_primes, spin, pos, rot)
 
 def countify2(ar):
     # http://stackoverflow.com/questions/4260645/how-to-get-running-counts-for-numpy-array-values
@@ -283,43 +283,25 @@ def countify2(ar):
     for u in uniques:
         ar3[ar2 == u] = myarange
     return ar3
-
-def print_npz_vals(infile, slices):
-    with np.load(infile, mmap_mode='r') as data:
-        primes = data['primes']
-        spin = data['spin']
-        rot = data['rot']
-        pos = data['pos']
-    for s in slices:
-        data  = itertools.izip(primes[s], pos[s], spin[s], rot[s])
-        write_collection_to_file(sys.stdout, data)
     
-        
-def get_slice_obj(slicearg):
-    slicearg = re.sub(',','',slicearg)
-    svals = [ int(n) if n else None for n in slicearg.split(':') ]
-    svals = tuple(svals)
-    s = apply(slice, svals)
-    return s
-
+                                    
 def main(argv = None):
     import sys, argparse, os, re
     if argv is None:
         argv = sys.argv
             
     parser = argparse.ArgumentParser(description='Prime Spin Hexagons')
-    parser.add_argument('--infile', help='Input file to start processing chunks',required=False)
-    parser.add_argument('--viewvalues', help='Values to view in the file as a python slice, e.g. 1:100:', required=False, action='append',)
+    parser.add_argument('--startfile', help='Input file to start processing chunks',required=False)
+    parser.add_argument('--startvalue', help='Starting value for resumed chunk computations',
+                        required=False, type=long)
     parser.add_argument("-c", "--compress", action="store_true", default=True)
     parser.add_argument('--logfile', help='Save messagse to this log file',required=False)
-    parser.add_argument('--verbose', help='Print messages to the terminal',required=False,default=1)
+    parser.add_argument('--verbose', help='Print messages to the terminal',required=False)
     parser.add_argument('--nvalues', help="number of values to process in a chunk",
                         default=10**9, type=long)
-    parser.add_argument('--skip', help="number of values to skip in printing output",
-                        default=1, type=long)
     parser.add_argument("--chunks", help="number of chunks to process", default=10,  type=int)
     args = parser.parse_args()
-    
+
     global logger
     
     if args.logfile:
@@ -339,22 +321,18 @@ def main(argv = None):
         # add ch to logger
         logger.addHandler(ch)
         
-    if args.infile is None:
-        blow_chunks(args.nvalues, nchunks=args.chunks, do_compress=args.compress, skip_interval=args.skip)
+    if args.startfile is None:
+        blow_chunks(args.nvalues, nchunks=args.chunks, do_compress=args.compress)
 
     else:
         # we have a starting file, figure some stuff out
-        if not os.path.isfile(args.infile):
-            sys.stderr.write("{} file does not exist".format(args.infile))
+        if not os.path.isfile(args.startfile):
+            sys.stderr.write("{} file does not exist".format(args.startfile))
             sys.exit(1)
-        startval, endval = [long(x) for x in re.findall('\d+',args.infile)]
+        startval, endval = [long(x) for x in re.findall('\d+',args.startfile)]
         nvalues = endval - startval
-
-        if args.viewvalues:
-            slices = [ get_slice_obj(s) for s in args.viewvalues]
-            print_npz_vals(args.infile, slices)
-        else:
-            blow_chunky_chunks(args.infile, startval, nvalues, nchunks=args.chunks, skip_interval=args.skip)
+        
+        blow_chunky_chunks(args.startfile, startval, nvalues, nchunks=args.chunks)
         
     #compute_hex_positions(end_num, 1)
 
