@@ -165,16 +165,13 @@ def save_binary_arrays( filename, primes, spin, pos, rot, skip_interval=None, do
     else:
         s = slice(None, None, 1)
 
-    saver = np.savez
-    msg = "uncompressed"
-    if do_compress:
-        msg = "compressed"
-        saver = np.savez_compressed
-    logger.info("start save binary arrays {} to file {} with slice {}".format(msg, filename, s))
+    (saver,msg) = (np.savez,"uncompressed") if do_compress else (np.savez_compressed, "compressed")
+        
+    logger.info("start save binary arrays {} to file {} with {}".format(msg, filename, s))
     saver(filename, primes=primes[s], spin=spin[s], pos=pos[s], rot=rot[s])
     logger.info("\tdone save binary arrays")
 
-def blow_chunky_chunks(start_file, start_val, nvals, nchunks = 10, skip_interval=1,verbose=None, do_compress=None):
+def compute_chunks_from_files(start_file, start_val, nvals, nchunks = 10, skip_interval=1,verbose=None, do_compress=None):
     fname = start_file
     val = start_val
     for i in range(nchunks):
@@ -183,12 +180,12 @@ def blow_chunky_chunks(start_file, start_val, nvals, nchunks = 10, skip_interval
         fname = res[0]
         del res
     
-def blow_chunks(nvals, nchunks = 10, verbose=None, do_compress=None, skip_interval=1):
+def compute_chunks_from_scratch(nvals, nchunks = 10, verbose=None, do_compress=None, skip_interval=1):
     res = compute_hex_positions(nvals, do_compress=do_compress, skip_interval=skip_interval)
     fname = res[0]
     del res
     start_val = nvals
-    blow_chunky_chunks( fname, start_val, nvals, nchunks=nchunks-1, do_compress=do_compress, skip_interval=skip_interval)
+    compute_chunks_from_files( fname, start_val, nvals, nchunks=nchunks-1, do_compress=do_compress, skip_interval=skip_interval)
 
 
 def test_verbose(nvals=100, verbose=None):
@@ -353,7 +350,7 @@ def main(argv = None):
         logger.addHandler(ch)
         
     if args.infile is None:
-        blow_chunks(args.nvalues, nchunks=args.chunks, do_compress=args.compress, skip_interval=args.skip)
+        compute_chunks_from_scratch(args.nvalues, nchunks=args.chunks, do_compress=args.compress, skip_interval=args.skip)
 
     else:
         # we have a starting file, figure some stuff out
@@ -367,7 +364,7 @@ def main(argv = None):
             slices = [ get_slice_obj(s) for s in args.viewvalues]
             print_npz_vals(args.infile, slices)
         else:
-            blow_chunky_chunks(args.infile, endval, nvalues, nchunks=args.chunks, skip_interval=args.skip)
+            compute_chunks_from_files(args.infile, endval, nvalues, nchunks=args.chunks, skip_interval=args.skip)
         
     #compute_hex_positions(end_num, 1)
 
