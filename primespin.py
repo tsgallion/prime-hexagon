@@ -320,7 +320,7 @@ def main(argv = None):
     parser = argparse.ArgumentParser(description='Prime Spin Hexagons')
     parser.add_argument('--infile', help='Input file to start processing chunks',required=False)
     parser.add_argument('--viewvalues', help='Values to view in the file as a python slice, e.g. 1:100:', required=False, action='append',)
-    parser.add_argument("-c", "--compress", action="store_true", default=True)
+    parser.add_argument("-c", "--compress", help="flag to indicate whether or not to compress output files", action="store_true", default=True)
     parser.add_argument('--logfile', help='Save messagse to this log file',required=False)
     parser.add_argument('--verbose', help='Print messages to the terminal',required=False,default=1)
     parser.add_argument('--nvalues', help="number of values to process in a chunk",
