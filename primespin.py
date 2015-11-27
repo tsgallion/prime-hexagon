@@ -49,7 +49,16 @@ setup_loggers()
 
 def primes_from_a_to_b_primesieve(a,b):
     logger.info("starting generating primes from {} to {}".format(a,b))
-    out = np.array(ps.generate_primes(a,b))
+    out = None
+    try:
+        print("trying direct numpy prime generation...")
+        out = ps.generate_primes_numpy(a,b)
+    except:
+        pass
+    # fall back to classic primesieve python 
+    if out is None:
+        print("fell back to classic primesieve")
+        out = np.array(ps.generate_primes(a,b))        
     logger.info("done generating primes")
     return out
 
