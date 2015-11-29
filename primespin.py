@@ -404,7 +404,7 @@ def main(argv = None):
     save_opts = { 'compress' : args.compress,
                   'skip_interval' : args.skip,
                   'save_text' : args.save_text }
-    print "Save options:" + str(save_opts)
+    print("Save options:" + str(save_opts))
     if args.infile is None:
         compute_chunks_from_scratch(args.nvalues, nchunks=args.chunks, save_opts=save_opts)
 
