@@ -220,9 +220,7 @@ def compute_hex_positions(start, end, boundaryVals, save_opts):
 
     # 2 and 3 are special, don't use them (they are the first two values, slice them out)
     if start < 2:
-        print("slicing out starting array:", primes)
         primes = primes[2:]
-        print("left with:", primes)
     
     # 1 as last prime and last_spin and last_pos arespecial cases to start off the computation
     spin = compute_spins(primes, boundaryVals.prime, boundaryVals.spin)
