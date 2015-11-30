@@ -295,8 +295,15 @@ class HexDataAssets:
             print("no files found containing the value {} in directory {}".format(vals, basedir))
             return
 
-        for v in vals:
-            for hfile in hexfiles:
+        for hfile in hexfiles:
+            # stupid check to see if any of the values are in this file.
+            indexes = hfile.values_around(vals)
+            if indexes:
+                print("file {}".format(hfile.filename))
+            else:
+                next
+            # now figure out which values are in this file...
+            for v in vals:
                 indexes = hfile.values_around((v,))
                 if indexes:
                     dprint(2, "found values in file {}".format(hfile))
@@ -304,15 +311,19 @@ class HexDataAssets:
                     # TODO: get it if primes are in the previous or next file
                     #  i.e. if idx-2 < 0, get primes from previous files
                     #       if idx+2 > length, get primes from next file
-                    zipped_arrays = hfile.get_zipped_arrays_iterator()
                     low = max(0, idx-2)
                     hi  = min( hfile.length(), idx+2)
                     dprint(2,"for val={} found index={} with low={}, hi={}".format(v, idx, low, hi))
-                    data = itertools.islice(zipped_arrays, low, idx)
+
+                    data = hfile.get_sliced_zipped_arrays_iterator(slice(low,idx))
                     write_collection_to_file(sys.stdout, data)
+
                     print('----> {} <----'.format(v))
-                    data = itertools.islice(zipped_arrays, idx, hi)
+
+                    zipped_arrays = hfile.get_zipped_arrays_iterator()
+                    data = hfile.get_sliced_zipped_arrays_iterator(slice(idx, hi))
                     write_collection_to_file(sys.stdout, data)
+
                     print("")
     
     def find_files_with_values(self, vals):
