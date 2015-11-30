@@ -64,6 +64,8 @@ Now resume a computation starting at the specified file:
 
     primespin.py --chunks=10 --skip=1000000 --infile output-00000000009000000000-00000000010000000000.npz
 
+### Print Values from the NPZ files
+
 Print some values from the binary .npz files
 
     primespin.py --viewvalues=:: --infile output-00000000009000000000-00000000010000000000.npz
@@ -79,3 +81,30 @@ Also any of those values can actually be negative values to indicate starting fr
 So let's print the last value in this file:
 
     primespin.py --viewvalues=-1:: --infile output-00000000009000000000-00000000010000000000.npz
+
+### Find values in the NPZ Files
+
+the --find argument takes a comma separated list of values. The program looks through the output directory for all files. The program searches for numbers and prints the surrounding prime hexagon values.
+
+
+```bash
+python primespin.py --find 2004698834,2005554573,8999550398
+2015-11-30 00:32:46,658 - prime_hexagon - INFO - using numpy primehexagon implementation
+2015-11-30 00:32:46,658 - prime_hexagon - INFO - looking for files matching pattern output/output-[0-9]*-[0-9]*.npz
+2015-11-30 00:32:46,659 - prime_hexagon - INFO - found 10 files
+(2004484351, 1, -1, 1145)
+(2004698833, 1, -1, 1126)
+----> 2004698834 <----
+(2009838559, 3, -1, 1113)
+(2010052483, 5, -1, 1115)
+
+(2005341167, 0, 1, 1126)
+(2005554553, 1, -1, 1146)
+----> 2005554573 <----
+(2011554973, 5, -1, 1131)
+(2011769437, 1, -1, 1118)
+
+(8999319293, 4, 1, 2052)
+(8999550397, 1, -1, 2052)
+----> 8999550398 <----
+```
