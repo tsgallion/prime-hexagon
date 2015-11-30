@@ -106,7 +106,6 @@ def _compute_spins(primes, last_prime, last_spin):
     spin = np.cumprod(z)
 
     logger.info("compute_spins: done computing spins")
-
     return spin
 
 def _compute_positions(spin, seed_pos, seed_spin):
@@ -220,16 +219,18 @@ def compute_hex_positions(start, end, boundaryVals, save_opts):
     primes = primes_from_a_to_b(start, end)
 
     # 2 and 3 are special, don't use them (they are the first two values, slice them out)
-    if start < 3:
+    if start < 2:
+        print("slicing out starting array:", primes)
         primes = primes[2:]
+        print("left with:", primes)
     
     # 1 as last prime and last_spin and last_pos arespecial cases to start off the computation
-    spin = compute_spins(primes, boundaryVals.prime, boundaryVals,spin)
+    spin = compute_spins(primes, boundaryVals.prime, boundaryVals.spin)
     pos  = compute_positions(spin, boundaryVals.pos, boundaryVals.spin)
     rot  = compute_rotations(pos, boundaryVals.rot)
 
     data = HexValues(primes, pos, spin, rot)
-    newHexFile = HexDataFile.save_new_file(start_val, end_val, data, save_opts)
+    newHexFile = HexDataFile.save_new_file(start, end, data, save_opts)
     return newHexFile
 
 def _require_infile(infile):
@@ -339,19 +340,19 @@ class HexDataAssets:
         return s
 
     def compute_next_chunks(self, startFile, nvalues, nchunks, save_opts):
-        start_val = startFile.start
-        hex_file = startFile
+        hexFile = startFile
+        start_val = startFile.end
         for i in range(nchunks):
-            end_val   = start_val + nvals
+            end_val   = start_val + nvalues
             linkedValues = hexFile.get_last_values()
             new_hexfile = compute_hex_positions(start_val, end_val, linkedValues, save_opts)
             start_val = end_val
-            hex_file = new_hexfile
+            hexFile = new_hexfile
         self._clear_file_cache()
         
     def compute_initial_chunks(self, nvalues, nchunks, save_opts):
         linkedValues = HexValues(1,1,1,0) # magic starting "previous" values
-        hfile = compute_hex_positions(0, end_val, linkedValues, save_opts)
+        hfile = compute_hex_positions(0, nvalues, linkedValues, save_opts)
         self.compute_next_chunks(hfile, nvalues, nchunks - 1, save_opts)
 
 
@@ -592,7 +593,7 @@ def main(argv = None):
             start_file = HexDataFile(args.infile)
             hexAssets.compute_next_chunks(start_file, args.nvalues, args.chunks, save_opts)
         else:
-            hexAssets.compute_initial_chunks(args.nvalues, args.chunks, save_opt)
+            hexAssets.compute_initial_chunks(args.nvalues, args.chunks, save_opts)
         
 
 if __name__ == "__main__":
