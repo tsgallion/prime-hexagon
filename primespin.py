@@ -236,7 +236,7 @@ def _require_infile(infile):
     if not os.path.isfile(infile):
         raise IOError("required input file {} does not exist".format(infile))
 
-_VERBOSE = 1
+_VERBOSE = 0
 def dprint(level, *args):
     if _VERBOSE >= level:
         logger.info(*args)
@@ -415,7 +415,7 @@ class HexDataFile:
     @staticmethod
     def get_values(filename):
         m = _HEX_FILENAME_RE.search(filename)
-        if m is None or m.groups() < 2:
+        if m is None or len(m.groups()) < 2:
             raise ValueError("filename {} does not have expected format".format(filename))
         groups = m.groupdict()
         if 'skip' not in groups or groups['skip'] is None:
@@ -501,9 +501,13 @@ class HexDataFile:
         return "HexDataFile(file={},start={}, end={}, skip={})".format(self.filename, self.start, self.end,self.skip)
     
     def values_around(self, vals):
-        cur_vals = filter( self.contains_value, vals)
+        cur_vals = []
+        for x in vals:
+            if self.contains_value(x):
+                cur_vals.append(x)
         if not cur_vals:
-            IndexError("no values {} contained in HexDataFile {}".format(vals, self))
+            #sys.stderr.write("no values {} contained in HexDataFile {}\n".format(vals, self))
+            return
         primes, pos, spin, rot = self.get_arrays()
         idx = primes.searchsorted(cur_vals)
         for ii in idx:
@@ -575,7 +579,11 @@ def main(argv = None):
         logger.addHandler(ch)
 
     setup_computation_engine(args.use_cython)
-        
+
+    if not os.path.isdir(args.dir):
+        logger.info("creating output directory {}".format(args.dir))
+        os.mkdir(args.dir)
+
     save_opts = { 'compress' : args.compress,
                   'skip_interval' : args.skip,
                   'save_text' : args.save_text,
