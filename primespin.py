@@ -15,8 +15,24 @@ import logging
 import re
 import itertools
 
+from collections import namedtuple
+
 import numpy as np
-import primesieve as ps
+import primesieve
+
+_HAS_PRIMESIEVE_NUMPY = False
+try:
+    import primesieve.numpy
+    _HAS_PRIMESIEVE_NUMPY = True
+except:
+    pass
+
+_HAS_CYTHON_PRIMEHEX = False
+try:
+    import primehexagon
+    _HAS_CYTHON_PRIMEHEX = True
+except:
+    pass
 
 # python 2/3 compatibility stuff
 try:
@@ -28,7 +44,7 @@ try:
     # python2 version of zip iterator is in itertools
     zipper = itertools.izip
 except:
-    # new python3 version is no longer in itertools
+    # new python3 version is no longer in itertools. seriously?
     zipper = zip
 
 logger = None
@@ -47,39 +63,39 @@ def setup_loggers():
     # create formatter
     log_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
-
-
 setup_loggers()
 
-def primes_from_a_to_b_primesieve(a,b):
+def list_generate_primes_array(a,b):
     logger.info("starting generating primes from {} to {}".format(a,b))
-    out = None
-    try:
-        print("trying direct numpy prime generation...")
-        out = ps.generate_primes_numpy(a,b)
-    except:
-        pass
-    # fall back to classic primesieve python 
-    if out is None:
-        print("fell back to classic primesieve prime generation")
-        out = np.array(ps.generate_primes(a,b))        
+    logger.info("\tusing primesieve list prime generation")
+    a = primesieve.generate_primes(a,b)
+    logger.info("\tprimes generated")
+    a = np.array(a,dtype=np.uint64)
+    logger.info("\toutput array created")
     logger.info("done generating primes")
-    return out
+    return a
 
+def numpy_generate_primes_array(a,b):
+    logger.info("starting generating primes from {} to {}".format(a,b))
+    logger.info("\tusing numpy prime generator")
+    import primesieve.numpy
+    a = primesieve.numpy.generate_primes_array(a,b)
+    a = a.astype(np.uint64)
+    logger.info("done generating primes")
+    return a
 
-primes_from_a_to_b = primes_from_a_to_b_primesieve
+def get_primes_generator():
+    logger.info("selecting primes generation function")
+    func = None
+    if _HAS_PRIMESIEVE_NUMPY:
+        logger.info("\tusing numpy prime generation...")
+        func = numpy_generate_primes_array
+    else:
+        logger.info("\tfalling back to list primesieve prime generation")
+        func = list_generate_primes_array
 
-def primes_from_2_to_n_np(n):
-    # http://stackoverflow.com/questions/2068372/fastest-way-to-list-all-primes-below-n-in-python/3035188#3035188
-    """ Input n>=6, Returns a array of primes, 2 <= p < n """
-    sieve = np.ones(n/3 + (n%6==2), dtype=np.bool)
-    sieve[0] = False
-    for i in range(int(n**0.5)//3+1):
-        if sieve[i]:
-            k=3*i+1|1
-            sieve[      ((k*k)//3)      ::2*k] = False
-            sieve[(k*k+4*k-2*k*(i&1))//3::2*k] = False
-    return np.r_[2,3,((3*np.nonzero(sieve)[0]+1)|1)]
+    logger.info("prime generator selected")
+    return func
 
 
 def _compute_spins(primes, last_prime, last_spin):
@@ -133,103 +149,123 @@ def _compute_positions(spin, seed_pos, seed_spin):
     return outpositions
 
 
-def _compute_rotations(positions, rot_seed ):
+def _compute_rotations(positions, pos_seed, rot_seed ):
 
     logger.info("compute_rotations: starting aux calculations")
-    delta = np.diff(positions)
+    #logger.info("positions array {}".format(positions))
+    #logger.debug("rot_seed = {}".format(rot_seed))
+    #logger.debug("pos_seed = {}".format(pos_seed))
+
+    delta = np.zeros_like(positions)
+    delta[1:] = positions[1:] - positions[:-1]
+    delta[0] = positions[0] - pos_seed
+    #logger.debug("delta array {}".format(delta))
 
     z = np.zeros_like(delta)       # zero array like delta
     z[ delta == -5 ] =  1          # where delta = -5, set increment to 1
     z[ delta ==  5 ] = -1          # where delta is 5, set increment to -1
+
     logger.info("compute_rotations: done with aux calculations")
 
     logger.info("compute_rotations: starting primary calculations")
-    r = np.cumsum( np.concatenate(([rot_seed],z)))           # cumulative sum the increment values
+    z[0] += rot_seed
+    r = np.cumsum( z )
+    
+    logger.info("result array {}".format(r))
     logger.info("compute_rotations: done with primary calculations")
 
     return r
 
-# these functions are also implemented in cython versions
-# cython versions are much faster.
-compute_spins = _compute_spins
-compute_positions = _compute_positions
-compute_rotations = _compute_rotations
+class PrimeSpinFuncs:
+    def __init__(self, **opts):
+        self.compute_spins     = opts.get('compute_spins',_compute_spins)
+        self.compute_positions = opts.get('compute_positions',_compute_positions)
+        self.compute_rotations = opts.get('compute_rotations',_compute_rotations)
+        self.generate_primes   = opts.get('generate_primes')
+        
+_engines = {}
+_engines['numpy'] = PrimeSpinFuncs(compute_spins = _compute_spins,
+                                   compute_positions = _compute_positions,
+                                   compute_rotations = _compute_rotations)
 
-def setup_computation_engine(use_cython):
-    global compute_spins, compute_positions, compute_rotations
+if _HAS_CYTHON_PRIMEHEX:
+    print("has primehexagon implementation")
+    _engines['cython'] = PrimeSpinFuncs(compute_spins = primehexagon._compute_spins,
+                                        compute_positions = primehexagon._compute_positions,
+                                        compute_rotations = primehexagon._compute_rotations)
+    
+## TODO: figure if we can generalize/refactor these array savers methods
+def save_text_arrays( filename, data, save_opts):
+    logger.info("start saving text results to file {0}".format(filename))
 
-    has_primehex = False
-
-    try:
-        import primehexagon
-        primehexagon.init()
-        has_primehex = True
-    except:
-        pass
-
-    if has_primehex and use_cython:
-        logger.info("using cython primehexagon implementation")
-        compute_spins = primehexagon._compute_spins
-        compute_positions = primehexagon._compute_positions
-        compute_rotations = primehexagon._compute_rotations
+    skip_interval = save_opts.get('skip_interval',1)
+    if skip_interval == 0:
+        s = slice(-1,None,None)
     else:
-        logger.info("using numpy primehexagon implementation")
-    
-    
-def write_collection_to_file(fobj, data):
-    """Write to file object FOBJ each value in DATA collection
-    """
-    w = fobj.write
-    [ w( str(d) + '\n') for d in data]
+        s = slice(None, None, skip_interval)
 
-def print_text_arrays_to_file( fobj, data, save_opts=None):
-    skip_interval = 1
-    if save_opts:
-        skip_interval = save_opts.get('skip_interval',1)
     logger.info("start zipping and slicing data together")
-    data  = zipper(data.prime, data.pos, data.spin, data.rot)
-    d     = itertools.islice(data, None, None, skip_interval)
+    outdata    = zipper(data.prime[s], data.pos[s], data.spin[s], data.rot[s])
     logger.info("\tdone zipping and slicing data")
 
-    write_collection_to_file(fobj, d)
-
-def print_text_arrays( filename, data, save_opts):
-    logger.info("saving text results to file {0}".format(filename))
-    f = open(filename, "w") 
-    print_text_arrays_to_file(f, data, save_opts=save_opts)
-    f.close()
+    with open(filename, "w") as fp:
+        w = fp.write
+        # write each line as comma separated values
+        sep = ','
+        newline = '\n'
+        for d in outdata:
+            line = sep.join(map(str,d))
+            w(line)
+            w(newline)
     logger.info("done saving text file")
     
 def save_binary_arrays( filename, data, save_opts):
 
     skip_interval = save_opts.get('skip_interval', 1)
-    s = slice(None, None, skip_interval)
+    if skip_interval == 0:
+        s = slice(-1, None,None)           # only take last value
+    else:
+        s = slice(None, None, skip_interval)
 
     do_compress = save_opts.get('compress', 1)
         
     (saver,msg) = (np.savez,"uncompressed") if do_compress else (np.savez_compressed, "compressed")
         
-    logger.info("start save binary arrays {} to file {} with {}".format(msg, filename, s))
-    saver(filename, primes=data.prime[s], spin=data.spin[s], pos=data.pos[s], rot=data.rot[s])
+    logger.info("start save binary arrays {} to file {} with slice {}".format(msg, filename, s))
+    saver(filename, prime=data.prime[s], spin=data.spin[s], pos=data.pos[s], rot=data.rot[s])
     logger.info("\tdone save binary arrays")
 
 
-def compute_hex_positions(start, end, boundaryVals, save_opts):
+def compute_hex_positions(start, end, boundary_vals, save_opts):
 
-    primes = primes_from_a_to_b(start, end)
+    logger.info("save_opts is {}".format(save_opts))
+    logger.info("boundary values are {}".format(boundary_vals))
 
+    engine_name = save_opts.get('engine')
+    engine = _engines.get(engine_name)
+    if engine is None:
+        raise ValueError("No hex position engine available for engine_name {}".format(engine_name))
+
+    logger.info("using {} engine for computing hex positions".format(engine_name))
+
+    if engine.generate_primes is None:
+        engine.generate_primes = get_primes_generator()
+        
+    primes = engine.generate_primes(start, end)
+    logger.info("type of primes array: {}".format(primes.dtype))
+    
     # 2 and 3 are special, don't use them (they are the first two values, slice them out)
     if start < 2:
         primes = primes[2:]
     
     # 1 as last prime and last_spin and last_pos arespecial cases to start off the computation
-    spin = compute_spins(primes, boundaryVals.prime, boundaryVals.spin)
-    pos  = compute_positions(spin, boundaryVals.pos, boundaryVals.spin)
-    rot  = compute_rotations(pos, boundaryVals.rot)
+    spin = engine.compute_spins(primes, boundary_vals.prime, boundary_vals.spin)
+    pos  = engine.compute_positions(spin, boundary_vals.pos, boundary_vals.spin)
+    rot  = engine.compute_rotations(pos, boundary_vals.pos, boundary_vals.rot)
 
     data = HexValues(primes, pos, spin, rot)
-    newHexFile = HexDataFile.save_new_file(start, end, data, save_opts)
-    return newHexFile
+    new_hex_file = HexDataFile.save_new_file(start, end, data, save_opts)
+    return new_hex_file
 
 def _require_infile(infile):
     # we have a starting file, figure some stuff out
@@ -241,7 +277,7 @@ def dprint(level, *args):
     if _VERBOSE >= level:
         logger.info(*args)
 
-_HEX_FILENAME_RE = re.compile(r"-(?P<start>\d+)-(?P<end>\d+)(-(?P<skip>\d+))?.npz")
+_HEX_FILENAME_RE = re.compile(r"-(?P<start>\d+)-(?P<end>\d+)(-(?P<skip>\d+))?.(?P<ext>(npz|txt))")
 _HEX_FILENAME_GLOB = '-[0-9]*-[0-9]*.npz'
         
 class HexDataAssets:
@@ -291,8 +327,9 @@ class HexDataAssets:
         hexfiles = self.find_files_with_values(vals)
         if not hexfiles:
             print("no files found containing the value {} in directory {}".format(vals, basedir))
-            return
+            return None
 
+        did_find = False
         for hfile in hexfiles:
             # stupid check to see if any of the values are in this file.
             indexes = hfile.values_around(vals)
@@ -306,24 +343,32 @@ class HexDataAssets:
                 if indexes:
                     dprint(2, "found values in file {}".format(hfile))
                 for idx in indexes:
+                    did_find = True
                     # TODO: get it if primes are in the previous or next file
                     #  i.e. if idx-2 < 0, get primes from previous files
                     #       if idx+2 > length, get primes from next file
-                    low = max(0, idx-2)
-                    hi  = min( hfile.length(), idx+2)
+                    low = max(0, idx-1)
+                    hi  = min( hfile.length(), idx+1)
                     dprint(2,"for val={} found index={} with low={}, hi={}".format(v, idx, low, hi))
 
                     data = hfile.get_sliced_zipped_arrays_iterator(slice(low,idx))
-                    write_collection_to_file(sys.stdout, data)
+                    for d in data:
+                        s = ','.join( map(str,d) ) 
+                        sys.stdout.write(s + '\n')
+                        
+                        ##write_collection_to_file(sys.stdout, data)
 
                     print('----> {} <----'.format(v))
 
                     zipped_arrays = hfile.get_zipped_arrays_iterator()
                     data = hfile.get_sliced_zipped_arrays_iterator(slice(idx, hi))
-                    write_collection_to_file(sys.stdout, data)
+                    for d in data:
+                        s = ','.join( map(str,d) ) 
+                        sys.stdout.write(s + '\n')
 
                     print("")
-    
+            return did_find
+        
     def find_files_with_values(self, vals):
         """Return a SET of any files that contain any of the values specified"""
         return self._find_files(vals, HexDataFile.contains_any_values)
@@ -350,7 +395,7 @@ class HexDataAssets:
 
     def compute_next_chunks(self, startFile, nvalues, nchunks, save_opts):
         hexFile = startFile
-        start_val = startFile.end
+        start_val = hexFile.end
         for i in range(nchunks):
             end_val   = start_val + nvalues
             linkedValues = hexFile.get_last_values()
@@ -362,40 +407,50 @@ class HexDataAssets:
     def compute_initial_chunks(self, nvalues, nchunks, save_opts):
         linkedValues = HexValues(1,1,1,0) # magic starting "previous" values
         hfile = compute_hex_positions(0, nvalues, linkedValues, save_opts)
+        logger.info("save info: {}".format(save_opts))
         self.compute_next_chunks(hfile, nvalues, nchunks - 1, save_opts)
 
 
-class HexValues:
+class HexValues(namedtuple('HexValues', 'prime pos spin rot')):
     """Holds data for prime hexagon computations, including prime, position, spin, rotation data.
 
     This class treats the values as opaque, and we store either single
     values and also the arrays for many values
     """
     
-    def __init__(self, prime, pos, spin, rot):
-        self._prime = prime
-        self._pos = pos
-        self._spin = spin
-        self._rot = rot
+    @classmethod
+    def from_text_file(cls, fname):
+        prime, pos, spin, rot = np.loadtxt(fname, dtype=np.int64, delimiter=',', unpack=True)
 
-    @property
-    def prime(self): return self._prime
+        # ugh - single row of input gets returned as a set of scalar values. 
+        if np.isscalar(prime):
+            prime = np.array([prime])
+            pos = np.array([pos])
+            spin = np.array([spin])
+            rot = np.array([rot])
+        out = cls(prime, pos, spin, rot)
+            
+        return out
 
-    @property
-    def pos(self): return self._pos
-
-    @property
-    def spin(self): return self._spin
-
-    @property
-    def rot(self): return self._rot
+    @classmethod
+    def from_binary_file(cls, fname):
+        with np.load(fname, mmap_mode='r') as data:
+            prime = data['prime']
+            pos = data['pos']
+            spin = data['spin']
+            rot = data['rot']
+        out = cls(prime, pos, spin, rot)
+        return out
+    
 
 class HexDataFile:
+    """HexDataFile is a helper to find ranges of our data on disk. Think of it as a mini-database that has some helper functions to retrieve the data we need.
+"""
     def __init__(self, filename, require_exists=True):
         self._filename = filename
         if require_exists:
             _require_infile( filename )
-        startval,endval,skip = self.get_values(filename)
+        startval,endval,skip = self.get_params(filename)
         self._start = startval
         self._end   = endval
         self._skip  = skip
@@ -413,7 +468,7 @@ class HexDataFile:
     def skip(self): return self._skip
     
     @staticmethod
-    def get_values(filename):
+    def get_params(filename):
         m = _HEX_FILENAME_RE.search(filename)
         if m is None or len(m.groups()) < 2:
             raise ValueError("filename {} does not have expected format".format(filename))
@@ -429,40 +484,54 @@ class HexDataFile:
     @staticmethod
     def get_filename( start, end, save_opts):
         skip = save_opts.get('skip_interval',1)
-        outdir = save_opts.get('dir','output')
         basename = save_opts.get('basename','output')
-        fname = "{}-{:0>20d}-{:0>20d}-{:0>6d}".format(basename,start, end, skip)
-        name = os.path.join(outdir, fname)
-        dprint(1,"new filename is {}".format(name))
-        return name
+        fname = "{}-{:0>20d}-{:0>20d}-{:0>6d}".format(basename, start, end, skip)
+        dprint(1,"new filename is {}".format(fname))
+        return fname
 
     @classmethod
     def save_new_file( klass, start, end, data, save_opts):
+        """Factory method for creating new HexDataFiles.
+
+        Saves DATA to new files based on SAVE_OPTS. 
+
+        Returns: a new HexDataFile instance for this new data
+        """
         name = klass.get_filename(start, end, save_opts)
-        outname = name + '.npz'
+
+        # let's make sure output dir exists
+        outdir = save_opts.get('dir','output')
+        if not os.path.isdir(outdir):
+            logger.info("creating output dir {}".format(outdir))
+            os.makedirs(outdir)
+
+        outname = os.path.join(outdir, name) + '.npz'
         save_binary_arrays( outname, data, save_opts)
         newFile = klass(outname)
+
         if save_opts.get('save_text', False):
-            txtoutname = name + '.txt'
-            print_text_arrays( txtoutname, data, save_opts=save_opts)
+            txtoutname = os.path.join(outdir, name) + '.txt'
+            save_text_arrays( txtoutname, data, save_opts=save_opts)
         return newFile
         
     def get_arrays(self):
+        # NOTE: this assumes it is a numpy io file, not a text array.
+        # TODO: add np.loadtxt implementation if ext == .txt
         with np.load(self.filename, mmap_mode='r') as data:
-            primes = data['primes']
+            prime = data['prime']
             pos = data['pos']
             spin = data['spin']
             rot = data['rot']
-        return (primes, pos, spin, rot)
+        return (prime, pos, spin, rot)
 
     def get_zipped_arrays_iterator(self):
-        primes, pos, spin, rot = self.get_arrays()
-        return zipper(primes, pos, spin,rot)
+        prime, pos, spin, rot = self.get_arrays()
+        return zipper(prime, pos, spin,rot)
 
     def get_sliced_zipped_arrays_iterator(self, s):
-        primes, pos, spin, rot = self.get_arrays()
+        prime, pos, spin, rot = self.get_arrays()
         # not using itertools because it does not support -1 index'ed slicing
-        return zipper(primes[s], pos[s], spin[s],rot[s])
+        return zipper(prime[s], pos[s], spin[s],rot[s])
     
     def contains_value(self, n):
         return self.start <= n and n <= self.end
@@ -477,8 +546,8 @@ class HexDataFile:
         return self.end - self.start
 
     def get_last_values(self):
-        primes, pos, spin, rot = self.get_arrays()
-        vals = HexValues(primes[-1], pos[-1], spin[-1], rot[-1])
+        prime, pos, spin, rot = self.get_arrays()
+        vals = HexValues(prime[-1], pos[-1], spin[-1], rot[-1])
         return vals
     
     def __eq__(self, other):
@@ -508,8 +577,8 @@ class HexDataFile:
         if not cur_vals:
             #sys.stderr.write("no values {} contained in HexDataFile {}\n".format(vals, self))
             return
-        primes, pos, spin, rot = self.get_arrays()
-        idx = primes.searchsorted(cur_vals)
+        prime, pos, spin, rot = self.get_arrays()
+        idx = prime.searchsorted(cur_vals)
         for ii in idx:
             yield ii
         
@@ -521,12 +590,19 @@ class HexDataFile:
 
     def print_sliced_values(self, slices, ofile = sys.stdout):
         for s in slices:
-            print("testing slice {} {} {}".format(s.start, s.stop, s.step))
+            logger.debug("getting slice {} {} {}".format(s.start, s.stop, s.step))
             data = self.get_sliced_zipped_arrays_iterator(s)
-            write_collection_to_file(ofile, data)
-
+            for d in data:
+                ofile.write( ','.join( map(str,d)) + '\n')
         
 def get_slice_obj_from_str(slicearg):
+    """Given a string that looks like a slice, return an actual slice object.
+    This is used to let command line arguments specify slices.
+
+    There is a wonky bit w/ argparse that conflicts with starting
+    negative values. I keep forgetting to document the work around...
+
+    """
     slicearg = re.sub(',','',slicearg)
     svals = [ int(n) if n else None for n in slicearg.split(':') ]
     svals = tuple(svals)
@@ -578,7 +654,7 @@ def main(argv = None):
         # add ch to logger
         logger.addHandler(ch)
 
-    setup_computation_engine(args.use_cython)
+    #setup_computation_engine(args.use_cython)
 
     if not os.path.isdir(args.dir):
         logger.info("creating output directory {}".format(args.dir))
@@ -588,7 +664,10 @@ def main(argv = None):
                   'skip_interval' : args.skip,
                   'save_text' : args.save_text,
                   'dir' : args.dir,
-                  'basename' : args.basename  }
+                  'basename' : args.basename,
+                  'engine' : 'cython' if args.use_cython else 'numpy'
+    }
+    
     run_opts = { 'nvalues' : args.nvalues,
                  'nchunks' : args.chunks }
     
