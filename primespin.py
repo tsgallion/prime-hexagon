@@ -171,7 +171,6 @@ def _compute_rotations(positions, pos_seed, rot_seed ):
     z[0] += rot_seed
     r = np.cumsum( z )
     
-    logger.info("result array {}".format(r))
     logger.info("compute_rotations: done with primary calculations")
 
     return r
@@ -189,7 +188,6 @@ _engines['numpy'] = PrimeSpinFuncs(compute_spins = _compute_spins,
                                    compute_rotations = _compute_rotations)
 
 if _HAS_CYTHON_PRIMEHEX:
-    print("has primehexagon implementation")
     _engines['cython'] = PrimeSpinFuncs(compute_spins = primehexagon._compute_spins,
                                         compute_positions = primehexagon._compute_positions,
                                         compute_rotations = primehexagon._compute_rotations)
@@ -272,7 +270,7 @@ def _require_infile(infile):
     if not os.path.isfile(infile):
         raise IOError("required input file {} does not exist".format(infile))
 
-_VERBOSE = 0
+_VERBOSE = 2
 def dprint(level, *args):
     if _VERBOSE >= level:
         logger.info(*args)
@@ -282,7 +280,7 @@ _HEX_FILENAME_GLOB = '-[0-9]*-[0-9]*.npz'
         
 class HexDataAssets:
     def __init__(self, opts):
-        self.basedir = opts.get('basedir','output')
+        self.basedir = opts.get('dir','output')
         self.basename = opts.get('basename','output')
         self._files = None
 
@@ -630,8 +628,8 @@ def main(argv = None):
     parser.add_argument('--no-use-cython', help='Flag to not use cython implementation',dest="use_cython",action="store_false")
     parser.add_argument('--nvalues', help="number of values to process in a chunk",
                         default=10**9, type=long)
-    parser.add_argument('--skip', help="number of values to skip in printing output",
-                        default=1, type=long)
+    parser.add_argument('--skip', help="0 means save only last value in each chunk. 1 means save all values",
+                        default=0, type=long, choices=(0,1))
     parser.add_argument("--chunks", help="number of chunks to process", default=10,  type=int)
     args = parser.parse_args()
     
@@ -659,6 +657,10 @@ def main(argv = None):
     if not os.path.isdir(args.dir):
         logger.info("creating output directory {}".format(args.dir))
         os.mkdir(args.dir)
+
+    if args.skip != 0 and args.skip != 1:
+        sys.stderr.write("Only valid skip values are 0 or 1\n")
+        sys.exit(1)
 
     save_opts = { 'compress' : args.compress,
                   'skip_interval' : args.skip,

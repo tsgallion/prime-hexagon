@@ -27,22 +27,33 @@ Run with the --help argument to see the help file.
 
 ```bash
 python primespin.py --help
-usage: primespin.py [-h] [--startfile STARTFILE] [--startvalue STARTVALUE]
-                    [-c] [--logfile LOGFILE] [--verbose VERBOSE]
-                    [--nvalues NVALUES] [--chunks CHUNKS]
+usage: primespin.py [-h] [--infile INFILE] [--viewvalues VIEWVALUES]
+                    [--find FIND] [-c] [--dir DIR] [--basename BASENAME]
+                    [--logfile LOGFILE] [--verbose VERBOSE] [--save-text]
+                    [--save-binary] [--use-cython] [--no-use-cython]
+                    [--nvalues NVALUES] [--skip SKIP] [--chunks CHUNKS]
 
 Prime Spin Hexagons
 
 optional arguments:
   -h, --help            show this help message and exit
-  --startfile STARTFILE
-                        Input file to start processing chunks
-  --startvalue STARTVALUE
-                        Starting value for resumed chunk computations
-  -c, --compress
+  --infile INFILE       Input file to start processing chunks
+  --viewvalues VIEWVALUES
+                        Values to view in the file as a python slice, e.g.
+                        1:100:
+  --find FIND           Find values in files
+  -c, --compress        flag to indicate whether or not to compress output
+                        files
+  --dir DIR             Directory to read/write files to
+  --basename BASENAME   Basename of files to read and write
   --logfile LOGFILE     Save messagse to this log file
   --verbose VERBOSE     Print messages to the terminal
+  --save-text           Flag to save text files
+  --save-binary         Flag to save binary files
+  --use-cython          Flag to use cython implementation if available
+  --no-use-cython       Flag to not use cython implementation
   --nvalues NVALUES     number of values to process in a chunk
+  --skip SKIP           number of values to skip in printing output
   --chunks CHUNKS       number of chunks to process
 ```
 
@@ -54,15 +65,25 @@ Generate 1000 files of 1B values each
 
 or
 
-     python3 primespin.py --nvalues=$(echo 10,000,000,000 | tr -d ,) --chunks=10000 --skip=1000000 --logfile run.log
+     python3 primespin.py --nvalues=$(echo 10,000,000,000 | tr -d ,) --chunks=10000 --skip=0 --logfile run.log
 
 Same thing but write out only every 1Mth value:
 
-    primespin.py --nvalues=10000000000 --chunks=10 --skip=1000000 
+    primespin.py --nvalues=10000000000 --chunks=10 --skip=0
 
 Now resume a computation starting at the specified file:
 
-    primespin.py --chunks=10 --skip=1000000 --infile output-00000000009000000000-00000000010000000000.npz
+    primespin.py --chunks=10 --skip=0 --infile output-00000000009000000000-00000000010000000000.npz
+
+### Skip argument
+
+It turns out we don't always want to print out all the values we are computing. In fact, if we just want to be able to resume computations, we only need the last set of values in a range stored.
+
+Use --skip=0 to save only a single value - the last set of values in the range.
+
+--skip=1 is also valid to print out all values in the range.
+
+But any other value is not going to work if you want to use chunks.
 
 ### Print Values from the NPZ files
 
@@ -107,4 +128,13 @@ python primespin.py --find 2004698834,2005554573,8999550398
 (8999319293, 4, 1, 2052)
 (8999550397, 1, -1, 2052)
 ----> 8999550398 <----
+```
+
+## Tests
+
+the tests/ directory has some tests. To run them, you'll need to
+
+```bash
+pip install py.test
+PYTHONPATH=. py.test -v --debug tests/test_prime_hex.py 
 ```
