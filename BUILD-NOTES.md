@@ -42,8 +42,10 @@ then the basic commands are:
     cd prime-hexagon
     mkvirtualenv prime-hexagon
     workon prime-hexagon
-    pip install primesieve
     pip install numpy
+    pip install cython
+    pip install primesieve
+    pip install py.test
 
 
 
