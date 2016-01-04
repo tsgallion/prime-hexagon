@@ -22,8 +22,7 @@ def setup_loggers():
     # create formatter
     log_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
-def init():
-    setup_loggers()
+setup_loggers()
 
 
 cpdef np.ndarray _compute_spins(np.ndarray[np.uint64_t, ndim=1,mode='c'] primes, uint64_t last_prime, int last_spin, out = None):
@@ -48,12 +47,11 @@ cpdef np.ndarray _compute_spins(np.ndarray[np.uint64_t, ndim=1,mode='c'] primes,
     cdef uint64_t *pdata
     cdef int8_t   *odata
 
-    cdef int m6val_prev
+    cdef int m6val_prev = last_prime % 6
     cdef int m6val_cur
     cdef int m6_offset_sum
     cdef int z
 
-    m6val_prev  = last_prime % 6
     cdef int8_t cumprod_val  = last_spin
     cdef uint64_t ii
     for ii in range(0, nn):
@@ -61,7 +59,7 @@ cpdef np.ndarray _compute_spins(np.ndarray[np.uint64_t, ndim=1,mode='c'] primes,
         m6val_cur = pdata[0] % 6
 
         #logger.info("compute_spins: for ii = {} m6val prev {} and cur {}".format(ii, m6val_prev,m6val_cur))
-        m6_offset_sum = m6val_prev + m6val_cur;
+        m6_offset_sum = m6val_prev + m6val_cur
         if m6_offset_sum == 6:
             z = 1
         elif ((m6_offset_sum == 10) or (m6_offset_sum == 2)):
@@ -117,7 +115,7 @@ cpdef np.ndarray  _compute_positions(np.ndarray[np.int8_t, ndim=1, mode='c'] spi
     cdef int8_t *sdata_cur
     cdef int8_t *odata
 
-    cdef int8_t spin_prev = seed_spin;
+    cdef int8_t spin_prev = seed_spin
     cdef int8_t spin_cur
     cdef int8_t delta
     cdef int64_t cumsum_val = seed_pos
@@ -162,7 +160,7 @@ cpdef np.ndarray  _compute_positions(np.ndarray[np.int8_t, ndim=1, mode='c'] spi
     return out_array
 
 
-cpdef np.ndarray _compute_rotations(np.ndarray[np.int8_t, ndim=1, mode='c'] positions, int rot_seed, out = None):
+cpdef np.ndarray _compute_rotations(np.ndarray[np.int8_t, ndim=1, mode='c'] positions, int pos_seed, int rot_seed, out = None):
 
     global logger
     logger.info("compute_rotations: starting primary calculations")
@@ -179,14 +177,14 @@ cpdef np.ndarray _compute_rotations(np.ndarray[np.int8_t, ndim=1, mode='c'] posi
     cdef int8_t *pdata
     cdef int64_t *odata
 
-    cdef int8_t pos_cur, pos_prev
+    cdef int8_t pos_cur
+    cdef int8_t pos_prev = pos_seed
     cdef int8_t delta
     cdef int64_t cumsum_val = rot_seed
     cdef int8_t inc
     cdef uint64_t ii
-    pos_prev = positions[0]
-    out_array[0] = rot_seed
-    for ii in range(1, nn):
+
+    for ii in range(0, nn):
         
         #pos_cur= positions[ii]
         pdata  = <int8_t *>(np.PyArray_GETPTR1(positions, ii))
@@ -208,7 +206,9 @@ cpdef np.ndarray _compute_rotations(np.ndarray[np.int8_t, ndim=1, mode='c'] posi
         pos_prev = pos_cur
         
 
-    #delta = np.diff(positions)
+    #delta = np.zeros_like(positions)
+    #delta[1:] = positions[1:] - positions[:-1]
+    #delta[0] = positions[0] - pos_seed
 
     #z = np.zeros_like(delta)       # zero array like delta
     #z[ delta == -5 ] =  1          # where delta = -5, set increment to 1
@@ -216,7 +216,8 @@ cpdef np.ndarray _compute_rotations(np.ndarray[np.int8_t, ndim=1, mode='c'] posi
     #logger.info("compute_rotations: done with aux calculations")
 
     #logger.info("compute_rotations: starting primary calculations")
-    #r = np.cumsum( np.concatenate(([rot_seed],z)))           # cumulative sum the increment values
+    # z[0] += rot_seed
+    # r = np.cumsum( z )
     logger.info("compute_rotations: done with primary calculations")
 
     #return r
