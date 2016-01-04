@@ -19,13 +19,15 @@ def generate_cython_c_config_file():
 
 generate_cython_c_config_file()
 
+# assume fallback to compiled cpp
+EXT='cpp'
+cythonize = None
 if glob("*.pyx"):
-    from Cython.Build import cythonize
-    EXT = 'pyx'                 # file extension to use if cython is installed
-else:
-    # fallback to compiled cpp
-    cythonize = None
-    EXT = 'cpp'                 # for distribution we include the generated cpp file, so use it for installation
+    try:
+        from Cython.Build import cythonize
+        EXT = 'pyx'                 # file extension to use if cython is installed
+    except:
+        pass
 
 extension = Extension(
         "primehexagon",
