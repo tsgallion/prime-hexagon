@@ -111,6 +111,7 @@ def _compute_spins(primes, last_prime, last_spin):
     m6_offset_sum[0]  = m6val[0] + (last_prime % 6)            #  seed value from current val + prev m6val
     m6_offset_sum[1:] = m6val[1:] + m6val[:-1]                 #  cur m6val + prev m6val
     logger.info("compute_spins: done mod6Values")
+    logger.info("compute_spins: m6_off_sum={}".format(m6_offset_sum))
 
     logger.info("compute_spins: starting to compute spins")
 
@@ -118,9 +119,12 @@ def _compute_spins(primes, last_prime, last_spin):
     z[ m6_offset_sum ==  6] =  1
     z[ m6_offset_sum == 10] = -1
     z[ m6_offset_sum ==  2] = -1
+    logger.info("compute_spins: z before last_spin={}".format(z))
     z[0] *= last_spin
+    logger.info("compute_spins: z={}".format(z))
     spin = np.cumprod(z)
 
+    logger.info("compute_spins: spin={}".format(spin))
     logger.info("compute_spins: done computing spins")
     return spin
 
@@ -133,9 +137,11 @@ def _compute_positions(spin, seed_pos, seed_spin):
     delta = np.zeros_like(spin)
     delta[0]  = spin[0] - seed_spin      # first delta is cur_spin - prev_spin from seed_spin
     delta[1:] = spin[1:] - spin[:-1]     # delta is cur_spin - prev_spin 
+    logger.info("compute_positions: delta={}".format(delta))
 
     increments = np.copy(spin)           # copy the spin array,
     increments[ delta != 0 ] = 0          # set any non-zero delta to zero in the increment array
+    logger.info("compute_positions: increments={}".format(increments))
 
     logger.info("compute_positions:\tdone with aux calculations")
     
@@ -145,6 +151,7 @@ def _compute_positions(spin, seed_pos, seed_spin):
     positions = np.copy(increments)
     #increments[0] = seed_pos
     outpositions = (seed_pos + np.cumsum(increments)) % 6
+    logger.info("compute_positions: outpositions={}".format(outpositions))
     logger.info("compute_positions:\tdone with primary calculation")
     return outpositions
 
@@ -270,7 +277,7 @@ def _require_infile(infile):
     if not os.path.isfile(infile):
         raise IOError("required input file {} does not exist".format(infile))
 
-_VERBOSE = 2
+_VERBOSE = 5
 def dprint(level, *args):
     if _VERBOSE >= level:
         logger.info(*args)
@@ -408,6 +415,24 @@ class HexDataAssets:
         logger.info("save info: {}".format(save_opts))
         self.compute_next_chunks(hfile, nvalues, nchunks - 1, save_opts)
 
+    def compute_provisional_chunks(self, start_value, nvalues, nchunks, save_opts):
+        logger.info("computing provisional chunks, starting from {}".format(start_value))
+        next_prime = primesieve.generate_n_primes(1, start_value)
+        logger.info("next_prime for start_value={} is {}".format(start_value, next_prime))
+        m6_start = next_prime[0] % 6
+        logger.info("m6_start is {}".format(m6_start))
+        if (m6_start == 1):
+            logger.info("m6_start is {}, so using start_pos = 0".format(m6_start))
+            prime_start_pos = 0
+        else:
+            logger.info("m6_start is {}, so using start_pos = 5".format(m6_start))
+            prime_start_pos = 5
+
+        linkedValues = HexValues(1, prime_start_pos, 1, 0) # magic starting "previous" values
+        end_value = start_value + nvalues
+        hfile = compute_hex_positions(start_value, end_value, linkedValues, save_opts)
+        logger.info("save info: {}".format(save_opts))
+        self.compute_next_chunks(hfile, nvalues, nchunks - 1, save_opts)
 
 class HexValues(namedtuple('HexValues', 'prime pos spin rot')):
     """Holds data for prime hexagon computations, including prime, position, spin, rotation data.
@@ -476,7 +501,7 @@ class HexDataFile:
         startval = long(groups['start'])
         endval   = long(groups['end'])
         skip     = long(groups['skip'])
-        dprint(2,"found values from filename {} = {},{},{}".format(filename,startval,endval,skip))
+        logger.info("found values from filename {} = {},{},{}".format(filename,startval,endval,skip))
         return (startval, endval, skip)
 
     @staticmethod
@@ -515,11 +540,24 @@ class HexDataFile:
     def get_arrays(self):
         # NOTE: this assumes it is a numpy io file, not a text array.
         # TODO: add np.loadtxt implementation if ext == .txt
-        with np.load(self.filename, mmap_mode='r') as data:
-            prime = data['prime']
-            pos = data['pos']
-            spin = data['spin']
-            rot = data['rot']
+        file,ext = os.path.splitext(self.filename)
+        logger.info("file ext for {} is {}".format(self.filename,ext))
+        if ext == '.npz':
+            with np.load(self.filename, mmap_mode='r') as data:
+                prime = data['prime']
+                pos = data['pos']
+                spin = data['spin']
+                rot = data['rot']
+        elif ext == '.txt':
+            prime,pos,spin,rot = np.loadtxt(self.filename, delimiter=',', unpack=1, dtype=np.int64, ndmin=2)
+        else:
+            raise ValueError("unknown input file type with extension {}".format(ext))
+
+        logger.info("loaded values from file={}".format(self.filename))
+        logger.info("loaded values from prime={}".format(prime))
+        logger.info("loaded values from pos={}".format(pos))
+        logger.info("loaded values from spin={}".format(spin))
+        logger.info("loaded values from rot={}".format(rot))
         return (prime, pos, spin, rot)
 
     def get_zipped_arrays_iterator(self):
@@ -615,6 +653,7 @@ def main(argv = None):
             
     parser = argparse.ArgumentParser(description='Prime Spin Hexagons')
     parser.add_argument('--infile', help='Input file to start processing chunks')
+    parser.add_argument('--startfrom', help="Starting point for provisional searching", type=long)
     parser.add_argument('--viewvalues', help='Values to view in the file as a python slice, e.g. 1:100:', action='append',)
     parser.add_argument('--find', help='Find values in files')
     parser.add_argument("-c", "--compress", help="flag to indicate whether or not to compress output files", action="store_true", default=True)
@@ -686,7 +725,9 @@ def main(argv = None):
         slices = [ get_slice_obj_from_str(s) for s in args.viewvalues]
         h.print_sliced_values(slices)
     else:
-        if args.infile is not None:
+        if args.startfrom is not None:
+            hexAssets.compute_provisional_chunks(args.startfrom, args.nvalues, args.chunks, save_opts)
+        elif args.infile is not None:
             _require_infile( args.infile )
             start_file = HexDataFile(args.infile)
             hexAssets.compute_next_chunks(start_file, args.nvalues, args.chunks, save_opts)
