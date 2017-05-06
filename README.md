@@ -3,7 +3,7 @@
 The Prime Hexagon is a simple mathematical structure that appears when integers are sequentially added to a field of tessellating equilateral triangles, provided the path of the integers is altered each time a prime number appears.
 
 This code computes prime numbers, their positons in the prime hexagon, the polarity of the number, and the prime hexagon's overall rotation.
-For more information go to hexspin.com.
+For more information go to hexspin.com.  Youtube:https://www.youtube.com/watch?v=fQL4KRH3wUQ
 
 ## Running
 
