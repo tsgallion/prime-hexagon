@@ -160,7 +160,7 @@ cpdef np.ndarray  _compute_positions(np.ndarray[np.int8_t, ndim=1, mode='c'] spi
     return out_array
 
 
-cpdef np.ndarray _compute_rotations(np.ndarray[np.int8_t, ndim=1, mode='c'] positions, int pos_seed, int rot_seed, out = None):
+cpdef np.ndarray _compute_rotations(np.ndarray[np.int8_t, ndim=1, mode='c'] positions, int pos_seed, int64_t rot_seed, out = None):
 
     global logger
     logger.info("compute_rotations: starting primary calculations")
