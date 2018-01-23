@@ -30,7 +30,7 @@ def split_hex_values_into_chunks_and_slice( hval, nvalues, nchunks, skip_interva
     else:
         skip_slice = slice(None,None, skip_interval)
     nn = hval.prime.shape[0]
-    sz = nn/nchunks
+    sz = int(nn/nchunks)
     print("nvalues={} nchunks={} nn = {} and sz={} slice={}".format(nvalues, nchunks, nn, sz, skip_slice))
 
     prime, pos, rot, spin = [numpy.empty(0,dtype=numpy.int64) for x in range(4)]
@@ -255,7 +255,7 @@ def do_one_run(opts, dirname):
 def test_vs_known_good_values(tmpdir, nchunks, engine,skip_interval):
 
     testname = get_test_name()
-    nvalues = 1000/nchunks
+    nvalues = int(1000/nchunks)
     d1 = tmpdir.mkdir(testname)
     base_opts = { 'compress' : True,
                   'skip_interval' : skip_interval,
