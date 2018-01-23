@@ -68,7 +68,7 @@ setup_loggers()
 def list_generate_primes_array(a,b):
     logger.info("starting generating primes from {} to {}".format(a,b))
     logger.info("\tusing primesieve list prime generation")
-    a = primesieve.generate_primes(a,b)
+    a = primesieve.primes(a,b)
     logger.info("\tprimes generated")
     a = np.array(a,dtype=np.uint64)
     logger.info("\toutput array created")
@@ -79,7 +79,7 @@ def numpy_generate_primes_array(a,b):
     logger.info("starting generating primes from {} to {}".format(a,b))
     logger.info("\tusing numpy prime generator")
     import primesieve.numpy
-    a = primesieve.numpy.generate_primes_array(a,b)
+    a = primesieve.numpy.primes(a,b)
     a = a.astype(np.uint64)
     logger.info("done generating primes")
     return a
