@@ -46,7 +46,7 @@ setup(
     license = "MIT",
     ext_modules = ext_modules,
     py_modules = ['primespin'],
-    install_requires=['numpy'],
+    install_requires=['numpy', 'primesieve'],
     classifiers=[
     'Programming Language :: Python :: 2',
     'Programming Language :: Python :: 2.6',
