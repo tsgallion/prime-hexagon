@@ -139,7 +139,8 @@ def _compute_positions(spin, seed_pos, seed_spin):
     delta[1:] = spin[1:] - spin[:-1]     # delta is cur_spin - prev_spin 
     logger.info("compute_positions: delta={}".format(delta))
 
-    increments = np.copy(spin)           # copy the spin array,
+    #increments = np.copy(spin)           # copy the spin array,
+    increments = np.abs(spin)           # copy the spin array,
     increments[ delta != 0 ] = 0          # set any non-zero delta to zero in the increment array
     logger.info("compute_positions: increments={}".format(increments))
 

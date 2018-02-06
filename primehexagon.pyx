@@ -128,7 +128,7 @@ cpdef np.ndarray  _compute_positions(np.ndarray[np.int8_t, ndim=1, mode='c'] spi
         spin_cur = sdata_cur[0]
         delta = spin_cur - spin_prev
         if delta == 0:
-            increment = spin_cur
+            increment = abs(spin_cur)
         else:
             increment = 0
         cumsum_val += increment
