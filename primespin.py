@@ -478,6 +478,7 @@ class HexDataFile:
         self._start = startval
         self._end   = endval
         self._skip  = skip
+        self._last_values = None
 
     @property
     def filename(self): return self._filename
@@ -529,18 +530,27 @@ class HexDataFile:
             logger.info("creating output dir {}".format(outdir))
             os.makedirs(outdir)
 
-        outname = os.path.join(outdir, name) + '.npz'
-        save_binary_arrays( outname, data, save_opts)
-        newFile = klass(outname)
+        outname = None
+        if save_opts.get('save_binary', False):
+            outname = os.path.join(outdir, name) + '.npz'
+            save_binary_arrays( outname, data, save_opts)
 
         if save_opts.get('save_text', False):
-            txtoutname = os.path.join(outdir, name) + '.txt'
-            save_text_arrays( txtoutname, data, save_opts=save_opts)
+            outname = os.path.join(outdir, name) + '.txt'
+            save_text_arrays( outname, data, save_opts=save_opts)
+
+        if outname is None:
+            logger.info("Must choose to save either binary or text files")
+            raise Exception("Must choose either text or binary output files")
+
+        newFile = klass(outname)
+        newFile.set_last_values(data)
+        newFile._end = end
+        newFile._start = start
+        newFile._skip = save_opts.get('skip_interval',1)
         return newFile
         
     def get_arrays(self):
-        # NOTE: this assumes it is a numpy io file, not a text array.
-        # TODO: add np.loadtxt implementation if ext == .txt
         file,ext = os.path.splitext(self.filename)
         logger.info("file ext for {} is {}".format(self.filename,ext))
         if ext == '.npz':
@@ -582,10 +592,15 @@ class HexDataFile:
     def length(self):
         return self.end - self.start
 
+    def set_last_values(self, data):
+        self._last_values = HexValues(data.prime[-1], data.pos[-1], data.spin[-1], data.rot[-1])
+
     def get_last_values(self):
-        prime, pos, spin, rot = self.get_arrays()
-        vals = HexValues(prime[-1], pos[-1], spin[-1], rot[-1])
-        return vals
+        if self._last_values is None:
+            prime, pos, spin, rot = self.get_arrays()
+            vals = HexValues(prime[-1], pos[-1], spin[-1], rot[-1])
+            self._last_values = vals
+        return self._last_values
     
     def __eq__(self, other):
         return self.start == other.start and self.end == other.end
@@ -663,7 +678,7 @@ def main(argv = None):
     parser.add_argument('--logfile', help='Save messagse to this log file')
     parser.add_argument('--verbose', help='Print messages to the terminal', default=1)
     parser.add_argument('--save-text', help='Flag to save text files', action="store_true", default=False)
-    parser.add_argument('--save-binary', help='Flag to save binary files',action="store_true", default=True)
+    parser.add_argument('--save-binary', help='Flag to save binary files',action="store_true", default=False)
     parser.add_argument('--use-cython', help='Flag to use cython implementation if available',dest="use_cython",action="store_true")
     parser.add_argument('--no-use-cython', help='Flag to not use cython implementation',dest="use_cython",action="store_false")
     parser.add_argument('--nvalues', help="number of values to process in a chunk",
@@ -705,6 +720,7 @@ def main(argv = None):
     save_opts = { 'compress' : args.compress,
                   'skip_interval' : args.skip,
                   'save_text' : args.save_text,
+                  'save_binary' : args.save_binary,
                   'dir' : args.dir,
                   'basename' : args.basename,
                   'engine' : 'cython' if args.use_cython else 'numpy'
