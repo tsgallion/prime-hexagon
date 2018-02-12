@@ -287,7 +287,6 @@ def dprint(level, *args):
         logger.info(*args)
 
 _HEX_FILENAME_RE = re.compile(r"-(?P<start>\d+)-(?P<end>\d+)(-(?P<skip>\d+))?.(?P<ext>(npz|txt))")
-_HEX_FILENAME_GLOB = '-[0-9]*-[0-9]*.npz'
         
 class HexDataAssets:
     def __init__(self, opts):
@@ -313,10 +312,10 @@ class HexDataAssets:
         # check cache
         if self._files:
             return files
-        base_pattern = os.path.join(self.basedir, self.basename)
-        full_pattern = base_pattern + _HEX_FILENAME_GLOB
-        dprint(1, "looking for files matching pattern {}".format(full_pattern))
-        filenames = sorted(glob.glob(full_pattern))
+        dprint(1, "looking for files in {}".format(self.basedir))
+        files = os.listdir(self.basedir)
+        filenames = [ os.path.join(self.basedir,f) for f in files if _HEX_FILENAME_RE.search(f) ]
+        filenames.sort()
         dprint(1, "found {} files".format(len(filenames)))
         self._files = filenames
         return filenames
@@ -332,7 +331,7 @@ class HexDataAssets:
                 s.add(h)
         return s
 
-    def find_values_in_npz(self, vals):
+    def find_values_in_hexfiles(self, vals):
         hexfiles = self.find_files_with_values(vals)
         if not hexfiles:
             print("no files found containing the value {} in directory {}".format(vals, basedir))
@@ -738,7 +737,7 @@ def main(argv = None):
     if args.find:
         vals = [long(v) for v in args.find.split(',')]
         vals.sort()
-        hexAssets.find_values_in_npz(vals)
+        hexAssets.find_values_in_hexfiles(vals)
     elif args.viewvalues:
         _require_infile( args.infile )
         h = HexDataFile(args.infile)
