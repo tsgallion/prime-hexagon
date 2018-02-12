@@ -235,7 +235,10 @@ def save_binary_arrays( filename, data, save_opts):
 
     do_compress = save_opts.get('compress', 1)
         
-    (saver,msg) = (np.savez,"uncompressed") if do_compress else (np.savez_compressed, "compressed")
+    if do_compress:
+        (saver, msg) = (np.savez_compressed, "compressed")
+    else:
+        (saver, msg) = (np.savez,"uncompressed")
         
     logger.info("start save binary arrays {} to file {} with slice {}".format(msg, filename, s))
     saver(filename, prime=data.prime[s], spin=data.spin[s], pos=data.pos[s], rot=data.rot[s])
